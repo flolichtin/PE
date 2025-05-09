@@ -53,7 +53,8 @@ myself_ <-
 myself <- list()
 myself$variables <- setdiff(nm_, nm_w)
 myself$df <- myself_
-# save(myself, file = "./data-raw/myself.rda")
+
+save(myself, file = "./data-raw/myself.rda")
 
 df_w <-
   df_ %>%
