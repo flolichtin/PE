@@ -1,6 +1,6 @@
 # TODO
 
--[ ] Export most important data to .csv
+- [ ] Export most important data to .csv
 
 @daniehei:
--[ ] Make pemdcev work again
+- [ ] Make pemdcev work again
