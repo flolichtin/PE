@@ -16,7 +16,6 @@ Imports:
     devtools,
     dplyr,
     glue,
-    Heimisc,
     magrittr,
     purrr,
     readxl,

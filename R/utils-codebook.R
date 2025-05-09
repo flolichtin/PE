@@ -4,7 +4,7 @@ from_metadata_xlsx <- function(path) {
   names(meta_) <- meta$`Variable name`
   meta <-
     map(meta_, function(x) {
-      x_ <- Heimisc::drop_call_na(x)
+      x_ <- drop_call_na(x)
       as.list(x_)
     })
   return(meta)
