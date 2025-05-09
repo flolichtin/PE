@@ -10,7 +10,7 @@ library(logging)
 library(sjlabelled)
 
 LOGGING <- FALSE
-TONA <- FALSE  # recode labels$na to NA or keep them?
+TONA <- TRUE  # recode labels$na to NA or keep them?
 
 if (LOGGING) {
   LOGGER <- "dev"
