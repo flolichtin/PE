@@ -2,7 +2,7 @@
 
 export("%>%")
 export("%notin%")
-export(.reinstall)
+export(drop_call_na)
 export(get_attrs)
 export(select_attr)
 export(to_NA)
