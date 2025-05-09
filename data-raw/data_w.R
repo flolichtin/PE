@@ -9,8 +9,6 @@ library(jsonlite)
 library(logging)
 library(sjlabelled)
 
-rm(list = ls())
-
 LOGGING <- FALSE
 TONA <- FALSE  # recode labels$na to NA or keep them?
 

@@ -5,8 +5,6 @@ devtools::load_all()
 library(tidyverse)
 library(tibblify)
 
-rm(list = ls())
-
 load("./tmp/myself.rda")
 
 myself$variables
