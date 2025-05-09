@@ -2,8 +2,6 @@
 
 devtools::load_all()
 
-rm(list = ls())
-
 x_walk <-
   codebook$w1$all %>%
   append(codebook$w3$all)

@@ -4,14 +4,10 @@ devtools::load_all()
 
 library(tidyverse)
 
-rm(list = ls())
-
-
-
 codebook <- list()
 
 # w1
-path <- "./data-raw/smp_w1_metadata.xlsx"
+path <- "./data-raw/codebook/smp_w1_metadata.xlsx"
 w1 <- from_metadata_xlsx(path)
 
 # wacky helper
@@ -41,7 +37,7 @@ w1_labels <-
   })
 
 # w3
-path <- "./data-raw/smp_w3_metadata.xlsx"
+path <- "./data-raw/codebook/smp_w3_metadata.xlsx"
 w3 <- from_metadata_xlsx(path)
 
 fill_missing <- function(x, fill = "EN") {

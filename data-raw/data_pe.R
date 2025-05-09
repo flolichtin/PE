@@ -5,7 +5,7 @@ devtools::load_all()
 library(tidyverse)
 library(tibblify)
 
-load("./tmp/myself.rda")
+load("./data-raw/myself.rda")
 
 myself$variables
 
