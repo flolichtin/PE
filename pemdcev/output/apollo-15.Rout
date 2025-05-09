@@ -1,0 +1,1333 @@
+
+R version 4.3.2 (2023-10-31) -- "Eye Holes"
+Copyright (C) 2023 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> "
++ * same as apollo.12 but with latent variables
++ "
+[1] "\n* same as apollo.12 but with latent variables\n"
+> 
+> library(apollo)
+
+
+             . ,,                                                            
+            ,      ,,                                                        
+ ,,,,,,    ,         ,,                                                      
+,     ,,  ,            ,,,,.                                                 
+,,     , ,,   ,,,,,,    ,,,                                 //  //           
+  ,     ,,,.   ,,,,,.   ,,      ////                        //  //           
+,,     ,,,,,.           ,,     // //     //////    /////    //  //    /////  
+,,,        ,,           ,      //  //    /    //  //   //   //  //   //   // 
+              ,,       ,      ////////   /    //  //   //   //  //   //   // 
+                ,,   ,,      //     //   /   ///  //   //   //  //   //   // 
+                   ,         //      //  /////      ///      //  //    ///   
+                                         //                                  
+                                         //                                  
+
+Apollo 0.3.2
+http://www.ApolloChoiceModelling.com
+See url for a detailed manual, examples and a user forum.
+Sign up to the user forum to receive updates on new releases.
+
+Please cite Apollo in all written material you produce:
+Hess S, Palma D (2019). "Apollo: a flexible, powerful and customisable
+freeware package for choice model estimation and application." Journal
+of Choice Modelling, 32. doi:10.1016/j.jocm.2019.100170
+> library(tidyverse)
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.1.3     ✔ readr     2.1.4
+✔ forcats   1.0.0     ✔ stringr   1.5.0
+✔ ggplot2   3.4.2     ✔ tibble    3.2.1
+✔ lubridate 1.9.2     ✔ tidyr     1.3.1
+✔ purrr     1.0.2     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+> library(pemdcev)
+> 
+> rm(list = ls())
+> 
+> args <- commandArgs(trailingOnly = TRUE)
+> 
+> NCORES <- as.numeric(args[1])
+> OUT <- args[2]
+> 
+> # if not run from cli
+> if (length(args) == 0) {
++   NCORES <- 7
++   OUT <- "apollo_output"
++ }
+> 
+> apollo_initialise()
+Apollo ignition sequence completed
+> 
+> apollo_control <- list(
++   modelName = "apollo.15",
++   indivID = "ID",
++   outputDirectory = OUT,
++   nCores = NCORES
++ )
+> 
+> database <-
++   pemdcev::modeling_data_2$pe %>%
++   left_join(pemdcev::modeling_data_2$expl, by = "ID") %>%
++   mutate(outside.good = 100 - budget,
++          budget = 100) %>%
++   select(ID, budget, outside.good, everything())
+> 
+> # correct ind_concern
+> database$ind_concern %>% table()
+.
+   0    1    3    4    5 
+  43  183  967 1237  362 
+> database$ind_concern <- with(database, case_when(ind_concern == 3 ~ 2,
++                                                  ind_concern == 4 ~ 3,
++                                                  ind_concern == 5 ~ 4,
++                                                  TRUE ~ ind_concern))
+> 
+> avail <- pemdcev::modeling_data_2$avail
+> avail$outside.good <- rep(1, nrow(database))
+> avail <- as.data.frame(avail)
+> names(avail) <- paste0("avail_", names(avail))
+> 
+> database <- cbind(database, avail)
+> 
+> apollo_beta <- c(
++   alpha_base = 0,
++ 
++   gamma_rplc.r.sll = 1,
++   gamma_rdc.nd.cmpnst = 1,
++   gamma_shrt.flghts = 1,
++   gamma_mdm.flghts = 1,
++   gamma_lng.flghts = 1,
++   gamma_dt = 1,
++   gamma_inslt.rf = 1,
++   gamma_inslt.fcd = 1,
++   gamma_rplc.wndws = 1,
++   gamma_vntltn = 1,
++   gamma_ht.pmp = 1,
++   gamma_slr.pnls = 1,
++   gamma_rdc.tmp = 1,
++   gamma_crtfct = 1,
++   gamma_co2.offset = 1,
++   gamma_undercomp = 1,
++ 
++   asc_rplc.r.sll = 0,
++   asc_rdc.nd.cmpnst = 0,
++   asc_shrt.flghts = 0,
++   asc_mdm.flghts = 0,
++   asc_lng.flghts = 0,
++   asc_dt = 0,
++   asc_inslt.rf = 0,
++   asc_inslt.fcd = 0,
++   asc_rplc.wndws = 0,
++   asc_vntltn = 0,
++   asc_ht.pmp = 0,
++   asc_slr.pnls = 0,
++   asc_rdc.tmp = 0,
++   asc_crtfct = 0,
++   asc_co2.offset = 0,
++   asc_undercomp = 0,
++ 
++   # price_certificate
++   b_crtfct_price_certificate = 0,
++   b_co2.offset_price_certificate = 0,
++   b_undercomp_price_certificate = 0,
++ 
++   # co2_initial
++   b_rplc.r.sll_co2_initial = 0,
++   b_rdc.nd.cmpnst_co2_initial = 0,
++   b_shrt.flghts_co2_initial = 0,
++   b_mdm.flghts_co2_initial = 0,
++   b_lng.flghts_co2_initial = 0,
++   b_dt_co2_initial = 0,
++   b_inslt.rf_co2_initial = 0,
++   b_inslt.fcd_co2_initial = 0,
++   b_rplc.wndws_co2_initial = 0,
++   b_vntltn_co2_initial = 0,
++   b_ht.pmp_co2_initial = 0,
++   b_slr.pnls_co2_initial = 0,
++   b_rdc.tmp_co2_initial = 0,
++   b_crtfct_co2_initial = 0,
++   b_co2.offset_co2_initial = 0,
++   b_undercomp_co2_initial = 0,
++ 
++   # income
++   b_rplc.r.sll_income = 0,
++   b_rdc.nd.cmpnst_income = 0,
++   b_shrt.flghts_income = 0,
++   b_mdm.flghts_income = 0,
++   b_lng.flghts_income = 0,
++   b_dt_income = 0,
++   b_inslt.rf_income = 0,
++   b_inslt.fcd_income = 0,
++   b_rplc.wndws_income = 0,
++   b_vntltn_income = 0,
++   b_ht.pmp_income = 0,
++   b_slr.pnls_income = 0,
++   b_rdc.tmp_income = 0,
++   b_crtfct_income = 0,
++   b_co2.offset_income = 0,
++   b_undercomp_income = 0,
++ 
++   # emp_unemp
++ 
++   # emp_full
++   b_rplc.r.sll_emp_full = 0,
++   b_rdc.nd.cmpnst_emp_full = 0,
++   b_shrt.flghts_emp_full = 0,
++   b_mdm.flghts_emp_full = 0,
++   b_lng.flghts_emp_full = 0,
++   b_dt_emp_full = 0,
++   b_inslt.rf_emp_full = 0,
++   b_inslt.fcd_emp_full = 0,
++   b_rplc.wndws_emp_full = 0,
++   b_vntltn_emp_full = 0,
++   b_ht.pmp_emp_full = 0,
++   b_slr.pnls_emp_full = 0,
++   b_rdc.tmp_emp_full = 0,
++   b_crtfct_emp_full = 0,
++   b_co2.offset_emp_full = 0,
++   b_undercomp_emp_full = 0,
++ 
++   # emp_part
++   # emp_multi
++ 
++   # n_commute
++   b_rplc.r.sll_n_commute = 0,
++   b_rdc.nd.cmpnst_n_commute = 0,
++   b_shrt.flghts_n_commute = 0,
++   b_mdm.flghts_n_commute = 0,
++   b_lng.flghts_n_commute = 0,
++   b_dt_n_commute = 0,
++   b_inslt.rf_n_commute = 0,
++   b_inslt.fcd_n_commute = 0,
++   b_rplc.wndws_n_commute = 0,
++   b_vntltn_n_commute = 0,
++   b_ht.pmp_n_commute = 0,
++   b_slr.pnls_n_commute = 0,
++   b_rdc.tmp_n_commute = 0,
++   b_crtfct_n_commute = 0,
++   b_co2.offset_n_commute = 0,
++   b_undercomp_n_commute = 0,
++ 
++   # ho
++   b_rplc.r.sll_ho = 0,
++   b_rdc.nd.cmpnst_ho = 0,
++   b_shrt.flghts_ho = 0,
++   b_mdm.flghts_ho = 0,
++   b_lng.flghts_ho = 0,
++   b_dt_ho = 0,
++   b_inslt.rf_ho = 0,
++   b_inslt.fcd_ho = 0,
++   b_rplc.wndws_ho = 0,
++   b_vntltn_ho = 0,
++   b_ht.pmp_ho = 0,
++   b_slr.pnls_ho = 0,
++   b_rdc.tmp_ho = 0,
++   b_crtfct_ho = 0,
++   b_co2.offset_ho = 0,
++   b_undercomp_ho = 0,
++ 
++   # car variables
++   # car_value
++   b_rplc.r.sll_car_value = 0,
++   b_rdc.nd.cmpnst_car_value = 0,
++ 
++   # car_annual_km
++   b_rplc.r.sll_car_annual_km = 0,
++   b_rdc.nd.cmpnst_car_annual_km = 0,
++ 
++   # car_type_fuel
++   b_rplc.r.sll_car_type_fuel = 0,
++   b_rdc.nd.cmpnst_car_type_fuel = 0,
++ 
++   # car_type_electric
++   b_rplc.r.sll_car_type_electric = 0,
++   b_rdc.nd.cmpnst_car_type_electric = 0,
++ 
++   # car_type_hybrid
++   b_rplc.r.sll_car_type_hybrid = 0,
++   b_rdc.nd.cmpnst_car_type_hybrid = 0,
++ 
++   # car_size_small
++   b_rplc.r.sll_car_size_small = 0,
++   b_rdc.nd.cmpnst_car_size_small = 0,
++ 
++   # car_size_medium
++   b_rplc.r.sll_car_size_medium = 0,
++   b_rdc.nd.cmpnst_car_size_medium = 0,
++ 
++   # car_size_large
++   b_rplc.r.sll_car_size_large = 0,
++   b_rdc.nd.cmpnst_car_size_large = 0,
++ 
++   # pt variables
++   # (assumed: only affect rplc.r.sll and rdc.nd.cmpnst)
++   # pt_has
++   b_rplc.r.sll_pt_has = 0,
++   b_rdc.nd.cmpnst_pt_has = 0,
++ 
++   # n_short_flight
++   b_shrt.flghts_n_short_flight = 0,
++ 
++   # n_medium_flight
++   b_mdm.flghts_n_medium_flight = 0,
++ 
++   # n_long_flight
++   b_lng.flghts_n_long_flight = 0,
++ 
++   # bi_access
++   b_rplc.r.sll_bi_access = 0,
++   b_rdc.nd.cmpnst_bi_access = 0,
++ 
++   # ebi_access
++   b_rplc.r.sll_ebi_access = 0,
++   b_rdc.nd.cmpnst_ebi_access = 0,
++ 
++   # re variables
++   # re_type
++ 
++   # re_standard_old
++   b_inslt.rf_re_standard_old = 0,
++   b_inslt.fcd_re_standard_old = 0,
++   b_rplc.wndws_re_standard_old = 0,
++   b_vntltn_re_standard_old = 0,
++   b_ht.pmp_re_standard_old = 0,
++   b_slr.pnls_re_standard_old = 0,
++   b_rdc.tmp_re_standard_old = 0,
++ 
++   # log_re_area
++   b_inslt.rf_log_re_area = 0,
++   b_inslt.fcd_log_re_area = 0,
++   b_rplc.wndws_log_re_area = 0,
++   b_vntltn_log_re_area = 0,
++   b_ht.pmp_log_re_area = 0,
++   b_slr.pnls_log_re_area = 0,
++   b_rdc.tmp_log_re_area = 0,
++ 
++   # hh_size
++   b_rplc.r.sll_hh_size = 0,
++   b_rdc.nd.cmpnst_hh_size = 0,
++   b_shrt.flghts_hh_size = 0,
++   b_mdm.flghts_hh_size = 0,
++   b_lng.flghts_hh_size = 0,
++   b_dt_hh_size = 0,
++   b_inslt.rf_hh_size = 0,
++   b_inslt.fcd_hh_size = 0,
++   b_rplc.wndws_hh_size = 0,
++   b_vntltn_hh_size = 0,
++   b_ht.pmp_hh_size = 0,
++   b_slr.pnls_hh_size = 0,
++   b_rdc.tmp_hh_size = 0,
++   b_crtfct_hh_size = 0,
++   b_co2.offset_hh_size = 0,
++   b_undercomp_hh_size = 0,
++ 
++   # age
++   b_rplc.r.sll_age = 0,
++   b_rdc.nd.cmpnst_age = 0,
++   b_shrt.flghts_age = 0,
++   b_mdm.flghts_age = 0,
++   b_lng.flghts_age = 0,
++   b_dt_age = 0,
++   b_inslt.rf_age = 0,
++   b_inslt.fcd_age = 0,
++   b_rplc.wndws_age = 0,
++   b_vntltn_age = 0,
++   b_ht.pmp_age = 0,
++   b_slr.pnls_age = 0,
++   b_rdc.tmp_age = 0,
++   b_crtfct_age = 0,
++   b_co2.offset_age = 0,
++   b_undercomp_age = 0,
++ 
++   # sex_male
++   b_rplc.r.sll_sex_male = 0,
++   b_rdc.nd.cmpnst_sex_male = 0,
++   b_shrt.flghts_sex_male = 0,
++   b_mdm.flghts_sex_male = 0,
++   b_lng.flghts_sex_male = 0,
++   b_dt_sex_male = 0,
++   b_inslt.rf_sex_male = 0,
++   b_inslt.fcd_sex_male = 0,
++   b_rplc.wndws_sex_male = 0,
++   b_vntltn_sex_male = 0,
++   b_ht.pmp_sex_male = 0,
++   b_slr.pnls_sex_male = 0,
++   b_rdc.tmp_sex_male = 0,
++   b_crtfct_sex_male = 0,
++   b_co2.offset_sex_male = 0,
++   b_undercomp_sex_male = 0,
++ 
++   # educ
++   # educ_mandatory
++   b_rplc.r.sll_educ_mandatory = 0,
++   b_rdc.nd.cmpnst_educ_mandatory = 0,
++   b_shrt.flghts_educ_mandatory = 0,
++   b_mdm.flghts_educ_mandatory = 0,
++   b_lng.flghts_educ_mandatory = 0,
++   b_dt_educ_mandatory = 0,
++   b_inslt.rf_educ_mandatory = 0,
++   b_inslt.fcd_educ_mandatory = 0,
++   b_rplc.wndws_educ_mandatory = 0,
++   b_vntltn_educ_mandatory = 0,
++   b_ht.pmp_educ_mandatory = 0,
++   b_slr.pnls_educ_mandatory = 0,
++   b_rdc.tmp_educ_mandatory = 0,
++   b_crtfct_educ_mandatory = 0,
++   b_co2.offset_educ_mandatory = 0,
++   b_undercomp_educ_mandatory = 0,
++ 
++   # educ_secondary
++   b_rplc.r.sll_educ_secondary = 0,
++   b_rdc.nd.cmpnst_educ_secondary = 0,
++   b_shrt.flghts_educ_secondary = 0,
++   b_mdm.flghts_educ_secondary = 0,
++   b_lng.flghts_educ_secondary = 0,
++   b_dt_educ_secondary = 0,
++   b_inslt.rf_educ_secondary = 0,
++   b_inslt.fcd_educ_secondary = 0,
++   b_rplc.wndws_educ_secondary = 0,
++   b_vntltn_educ_secondary = 0,
++   b_ht.pmp_educ_secondary = 0,
++   b_slr.pnls_educ_secondary = 0,
++   b_rdc.tmp_educ_secondary = 0,
++   b_crtfct_educ_secondary = 0,
++   b_co2.offset_educ_secondary = 0,
++   b_undercomp_educ_secondary = 0,
++ 
++   # educ_higher
++   b_rplc.r.sll_educ_higher = 0,
++   b_rdc.nd.cmpnst_educ_higher = 0,
++   b_shrt.flghts_educ_higher = 0,
++   b_mdm.flghts_educ_higher = 0,
++   b_lng.flghts_educ_higher = 0,
++   b_dt_educ_higher = 0,
++   b_inslt.rf_educ_higher = 0,
++   b_inslt.fcd_educ_higher = 0,
++   b_rplc.wndws_educ_higher = 0,
++   b_vntltn_educ_higher = 0,
++   b_ht.pmp_educ_higher = 0,
++   b_slr.pnls_educ_higher = 0,
++   b_rdc.tmp_educ_higher = 0,
++   b_crtfct_educ_higher = 0,
++   b_co2.offset_educ_higher = 0,
++   b_undercomp_educ_higher = 0,
++ 
++   # diet_omnivore
++   b_dt_diet_omnivore = 0,
++ 
++   # accessibility
++   # log_road_acc
++   b_rplc.r.sll_log_road_acc = 0,
++   b_rdc.nd.cmpnst_log_road_acc = 0,
++ 
++   # log_pt_acc
++   b_rplc.r.sll_log_pt_acc = 0,
++   b_rdc.nd.cmpnst_log_pt_acc = 0,
++ 
++   # env
++ 
++   # LV
++   # pol_scale
++   b_rplc.r.sll_pol_scale = 0,
++   b_rdc.nd.cmpnst_pol_scale = 0,
++   b_shrt.flghts_pol_scale = 0,
++   b_mdm.flghts_pol_scale = 0,
++   b_lng.flghts_pol_scale = 0,
++   b_dt_pol_scale = 0,
++   b_inslt.rf_pol_scale = 0,
++   b_inslt.fcd_pol_scale = 0,
++   b_rplc.wndws_pol_scale = 0,
++   b_vntltn_pol_scale = 0,
++   b_ht.pmp_pol_scale = 0,
++   b_slr.pnls_pol_scale = 0,
++   b_rdc.tmp_pol_scale = 0,
++   b_crtfct_pol_scale = 0,
++   b_co2.offset_pol_scale = 0,
++   b_undercomp_pol_scale = 0,
++ 
++   zeta_pol_scale = 1,
++   tau_pol_scale_01 = -5,
++   tau_pol_scale_12 = -4,
++   tau_pol_scale_23 = -3,
++   tau_pol_scale_34 = -2,
++   tau_pol_scale_45 = -1,
++   tau_pol_scale_56 = 1,
++   tau_pol_scale_67 = 2,
++   tau_pol_scale_78 = 3,
++   tau_pol_scale_89 = 4,
++   tau_pol_scale_910 = 5,
++ 
++   # health
++   b_rplc.r.sll_health = 0,
++   b_rdc.nd.cmpnst_health = 0,
++   b_shrt.flghts_health = 0,
++   b_mdm.flghts_health = 0,
++   b_lng.flghts_health = 0,
++   b_dt_health = 0,
++   b_inslt.rf_health = 0,
++   b_inslt.fcd_health = 0,
++   b_rplc.wndws_health = 0,
++   b_vntltn_health = 0,
++   b_ht.pmp_health = 0,
++   b_slr.pnls_health = 0,
++   b_rdc.tmp_health = 0,
++   b_crtfct_health = 0,
++   b_co2.offset_health = 0,
++   b_undercomp_health = 0,
++ 
++   zeta_health = 1,
++   tau_health_01 = -2,
++   tau_health_12 = -1,
++   tau_health_23 = 1,
++   tau_health_34 = 2,
++ 
++   # ind
++   # ind_concern
++   b_rplc.r.sll_concern = 0,
++   b_rdc.nd.cmpnst_concern = 0,
++   b_shrt.flghts_concern = 0,
++   b_mdm.flghts_concern = 0,
++   b_lng.flghts_concern = 0,
++   b_dt_concern = 0,
++   b_inslt.rf_concern = 0,
++   b_inslt.fcd_concern = 0,
++   b_rplc.wndws_concern = 0,
++   b_vntltn_concern = 0,
++   b_ht.pmp_concern = 0,
++   b_slr.pnls_concern = 0,
++   b_rdc.tmp_concern = 0,
++   b_crtfct_concern = 0,
++   b_co2.offset_concern = 0,
++   b_undercomp_concern = 0,
++ 
++   zeta_concern = 1,
++   tau_concern_01 = -2,
++   tau_concern_12 = -1,
++   tau_concern_23 = 0,
++   tau_concern_34 = 1,
++ 
++   # resp
++   b_rplc.r.sll_resp = 0,
++   b_rdc.nd.cmpnst_resp = 0,
++   b_shrt.flghts_resp = 0,
++   b_mdm.flghts_resp = 0,
++   b_lng.flghts_resp = 0,
++   b_dt_resp = 0,
++   b_inslt.rf_resp = 0,
++   b_inslt.fcd_resp = 0,
++   b_rplc.wndws_resp = 0,
++   b_vntltn_resp = 0,
++   b_ht.pmp_resp = 0,
++   b_slr.pnls_resp = 0,
++   b_rdc.tmp_resp = 0,
++   b_crtfct_resp = 0,
++   b_co2.offset_resp = 0,
++   b_undercomp_resp = 0,
++ 
++   zeta_resp = 1,
++   tau_resp_01 = -5,
++   tau_resp_12 = -4,
++   tau_resp_23 = -3,
++   tau_resp_34 = -2,
++   tau_resp_45 = -1,
++   tau_resp_56 = 1,
++   tau_resp_67 = 2,
++   tau_resp_78 = 3,
++   tau_resp_89 = 4,
++   tau_resp_910 = 5,
++ 
++   # effic
++   b_rplc.r.sll_effic = 0,
++   b_rdc.nd.cmpnst_effic = 0,
++   b_shrt.flghts_effic = 0,
++   b_mdm.flghts_effic = 0,
++   b_lng.flghts_effic = 0,
++   b_dt_effic = 0,
++   b_inslt.rf_effic = 0,
++   b_inslt.fcd_effic = 0,
++   b_rplc.wndws_effic = 0,
++   b_vntltn_effic = 0,
++   b_ht.pmp_effic = 0,
++   b_slr.pnls_effic = 0,
++   b_rdc.tmp_effic = 0,
++   b_crtfct_effic = 0,
++   b_co2.offset_effic = 0,
++   b_undercomp_effic = 0,
++ 
++   zeta_effic = 1,
++   tau_effic_01 = -5,
++   tau_effic_12 = -4,
++   tau_effic_23 = -3,
++   tau_effic_34 = -2,
++   tau_effic_45 = -1,
++   tau_effic_56 = 1,
++   tau_effic_67 = 2,
++   tau_effic_78 = 3,
++   tau_effic_89 = 4,
++   tau_effic_910 = 5,
++ 
++   # exp
++   b_rplc.r.sll_exp = 0,
++   b_rdc.nd.cmpnst_exp = 0,
++   b_shrt.flghts_exp = 0,
++   b_mdm.flghts_exp = 0,
++   b_lng.flghts_exp = 0,
++   b_dt_exp = 0,
++   b_inslt.rf_exp = 0,
++   b_inslt.fcd_exp = 0,
++   b_rplc.wndws_exp = 0,
++   b_vntltn_exp = 0,
++   b_ht.pmp_exp = 0,
++   b_slr.pnls_exp = 0,
++   b_rdc.tmp_exp = 0,
++   b_crtfct_exp = 0,
++   b_co2.offset_exp = 0,
++   b_undercomp_exp = 0,
++ 
++   zeta_exp = 1,
++   tau_exp_01 = -5,
++   tau_exp_12 = -4,
++   tau_exp_23 = -3,
++   tau_exp_34 = -2,
++   tau_exp_45 = -1,
++   tau_exp_56 = 1,
++   tau_exp_67 = 2,
++   tau_exp_78 = 3,
++   tau_exp_89 = 4,
++   tau_exp_910 = 5,
++ 
++   sigma = 1
++ )
+> 
+> # Having undercomp as a reference has some nice behavioral interpretation: Rather
+> # not compensate than with a given strategy with negative coef...
+> apollo_fixed <- c(
++   "sigma", "alpha_base"
++ )
+> 
+> # reference levels
+> ref_level <- function(apollo_fixed, ref) {
++   nm <- names(apollo_beta)
++   flag <- stringr::str_detect(nm, ref)
++   af <- nm[flag]
++   c(apollo_fixed, af)
++ }
+> 
+> apollo_fixed <- ref_level(apollo_fixed, ref = "educ_mandatory")
+> apollo_fixed <- ref_level(apollo_fixed, ref = "car_size_large")
+> apollo_fixed <- ref_level(apollo_fixed, ref = "car_type_fuel")
+> 
+> # apollo.12.prep
+> fix <-
++   apollo.12.prep %>%
++   filter(!keep.final) %>%
++   pull(coef)
+> 
+> fix <- fix[!stringr::str_detect(fix, "_ind_|pol_scale|health")]
+> 
+> apollo_fixed <- c(apollo_fixed, fix)
+> 
+> apollo_fixed <- unique(apollo_fixed)
+> 
+> # random components
+> apollo_draws <- list(
++   interDrawsType = "sobol",
++   interNDraws = 100,
++   interUnifDraws = c(),
++   interNormDraws = c("eta_pol_scale", "eta_health", "eta_concern", "eta_resp",
++                      "eta_effic", "eta_exp"),
++ 
++   intraDrawsType = "",
++   intraNDraws = 0,
++   intraUnifDraws = c(),
++   intraNormDraws = c()
++ )
+> 
+> apollo_randCoeff <- function(apollo_beta, apollo_inputs) {
++   randcoeff <- list()
++ 
++   randcoeff[["LV_pol_scale"]] <- eta_pol_scale
++   randcoeff[["LV_health"]] <- eta_health
++   randcoeff[["LV_concern"]] <- eta_concern
++   randcoeff[["LV_resp"]] <- eta_resp
++   randcoeff[["LV_effic"]] <- eta_effic
++   randcoeff[["LV_exp"]] <- eta_exp
++ 
++   return(randcoeff)
++ }
+> 
+> apollo_inputs <- apollo_validateInputs()
+apollo_draws and apollo_randCoeff were found, so apollo_control$mixing
+  was set to TRUE
+All checks on apollo_control completed.
+All checks on database completed.
+Generating inter-individual draws ...... Done
+Inter-person draws are being used without a panel structure.
+> 
+> apollo_probabilities <- function(apollo_beta, apollo_inputs, functionality = "estimate")
++ {
++   apollo_attach(apollo_beta, apollo_inputs)
++   on.exit(apollo_detach(apollo_beta, apollo_inputs))
++ 
++   P <- list()
++ 
++   # likelihood of indicators
++   ol_settings.pol_scale <- list(
++     outcomeOrdered = pol_scale,
++     coding = 0:10,
++     V = zeta_pol_scale * LV_pol_scale,
++     tau = list(tau_pol_scale_01, tau_pol_scale_12, tau_pol_scale_23,
++                tau_pol_scale_34, tau_pol_scale_45, tau_pol_scale_56,
++                tau_pol_scale_67, tau_pol_scale_78, tau_pol_scale_89,
++                tau_pol_scale_910),
++     componentName = "m_pol_scale"
++   )
++ 
++   ol_settings.health <- list(
++     outcomeOrdered = health,
++     coding = 0:4,
++     V = zeta_health * LV_health,
++     tau = list(tau_health_01, tau_health_12, tau_health_23, tau_health_34),
++     componentName = "m_health"
++   )
++ 
++   ol_settings.concern <- list(
++     outcomeOrdered = ind_concern,
++     coding = 0:4,
++     V = zeta_concern * LV_concern,
++     tau = list(tau_concern_01, tau_concern_12, tau_concern_23, tau_concern_34),
++     componentName = "m_concern"
++   )
++ 
++   ol_settings.resp <- list(
++     outcomeOrdered = ind_resp,
++     coding = 0:10,
++     V = zeta_resp * LV_resp,
++     tau = list(tau_resp_01, tau_resp_12, tau_resp_23, tau_resp_34, tau_resp_45,
++                tau_resp_56, tau_resp_67, tau_resp_78, tau_resp_89, tau_resp_910),
++     componentName = "m_resp"
++   )
++ 
++   ol_settings.effic <- list(
++     outcomeOrdered = ind_effic,
++     coding = 0:10,
++     V = zeta_effic * LV_effic,
++     tau = list(tau_effic_01, tau_effic_12, tau_effic_23, tau_effic_34, tau_effic_45,
++                tau_effic_56, tau_effic_67, tau_effic_78, tau_effic_89, tau_effic_910),
++     componentName = "m_effic"
++   )
++ 
++   ol_settings.exp <- list(
++     outcomeOrdered = ind_exp,
++     coding = 0:10,
++     V = zeta_exp * LV_exp,
++     tau = list(tau_exp_01, tau_exp_12, tau_exp_23, tau_exp_34, tau_exp_45,
++                tau_exp_56, tau_exp_67, tau_exp_78, tau_exp_89, tau_exp_910),
++     componentName = "m_exp"
++   )
++ 
++   P[["m_pol_scale"]] <- apollo_ol(ol_settings.pol_scale, functionality)
++   P[["m_health"]] <- apollo_ol(ol_settings.health, functionality)
++   P[["m_concern"]] <- apollo_ol(ol_settings.concern, functionality)
++   P[["m_resp"]] <- apollo_ol(ol_settings.resp, functionality)
++   P[["m_effic"]] <- apollo_ol(ol_settings.effic, functionality)
++   P[["m_exp"]] <- apollo_ol(ol_settings.exp, functionality)
++ 
++   alternatives <- c(
++     "outside.good",
++     "rplc.r.sll",
++     "rdc.nd.cmpnst",
++     "shrt.flghts",
++     "mdm.flghts",
++     "lng.flghts",
++     "dt",
++     "inslt.rf",
++     "inslt.fcd",
++     "rplc.wndws",
++     "vntltn",
++     "ht.pmp",
++     "slr.pnls",
++     "rdc.tmp",
++     "crtfct",
++     "co2.offset",
++     "undercomp"
++   )
++ 
++   continuousChoice <- list(
++     outside.good = outside.good,
++     rplc.r.sll = rplc.r.sll,
++     rdc.nd.cmpnst = rdc.nd.cmpnst,
++     shrt.flghts = shrt.flghts,
++     mdm.flghts = mdm.flghts,
++     lng.flghts = lng.flghts,
++     dt = dt,
++     inslt.rf = inslt.rf,
++     inslt.fcd = inslt.fcd,
++     rplc.wndws = rplc.wndws,
++     vntltn = vntltn,
++     ht.pmp = ht.pmp,
++     slr.pnls = slr.pnls,
++     rdc.tmp = rdc.tmp,
++     crtfct = crtfct,
++     co2.offset = co2.offset,
++     undercomp = undercomp
++   )
++ 
++   V <- list()
++ 
++   V[["outside.good"]] = 0
++ 
++   V[["rplc.r.sll"]] = asc_rplc.r.sll +
++     b_rplc.r.sll_co2_initial * co2_initial +
++     b_rplc.r.sll_income * income +
++     b_rplc.r.sll_emp_full * emp_full +
++     b_rplc.r.sll_n_commute * n_commute +
++     b_rplc.r.sll_ho * ho +
++     b_rplc.r.sll_pol_scale * LV_pol_scale +
++     b_rplc.r.sll_health * LV_health +
++     car_access_how_owner * (
++       b_rplc.r.sll_car_value * car_value +
++         b_rplc.r.sll_car_annual_km * car_annual_km +
++         b_rplc.r.sll_car_type_fuel * car_type_fuel +
++         b_rplc.r.sll_car_type_electric * car_type_electric +
++         b_rplc.r.sll_car_type_hybrid * car_type_hybrid +
++         b_rplc.r.sll_car_size_small * car_size_small +
++         b_rplc.r.sll_car_size_medium * car_size_medium +
++         b_rplc.r.sll_car_size_large * car_size_large
++     ) +
++     b_rplc.r.sll_pt_has * pt_has +
++     b_rplc.r.sll_bi_access * bi_access +
++     b_rplc.r.sll_ebi_access * ebi_access +
++     b_rplc.r.sll_hh_size * hh_size +
++     b_rplc.r.sll_age * age +
++     b_rplc.r.sll_sex_male * sex_male +
++     b_rplc.r.sll_educ_mandatory * educ_mandatory +
++     b_rplc.r.sll_educ_secondary * educ_secondary +
++     b_rplc.r.sll_educ_higher * educ_higher +
++     b_rplc.r.sll_concern * LV_concern +
++     b_rplc.r.sll_resp * LV_resp +
++     b_rplc.r.sll_effic * LV_effic +
++     b_rplc.r.sll_exp * LV_exp +
++     b_rplc.r.sll_log_road_acc * log_road_acc +
++     b_rplc.r.sll_log_pt_acc * log_pt_acc
++ 
++   V[["rdc.nd.cmpnst"]] = asc_rdc.nd.cmpnst +
++     b_rdc.nd.cmpnst_co2_initial * co2_initial +
++     b_rdc.nd.cmpnst_income * income +
++     b_rdc.nd.cmpnst_emp_full * emp_full +
++     b_rdc.nd.cmpnst_n_commute * n_commute +
++     b_rdc.nd.cmpnst_ho * ho +
++     b_rdc.nd.cmpnst_pol_scale * LV_pol_scale +
++     b_rdc.nd.cmpnst_health * LV_health +
++     car_access * (
++       b_rdc.nd.cmpnst_car_value * car_value +
++         b_rdc.nd.cmpnst_car_annual_km * car_annual_km +
++         b_rdc.nd.cmpnst_car_type_fuel * car_type_fuel +
++         b_rdc.nd.cmpnst_car_type_electric * car_type_electric +
++         b_rdc.nd.cmpnst_car_type_hybrid * car_type_hybrid +
++         b_rdc.nd.cmpnst_car_size_small * car_size_small +
++         b_rdc.nd.cmpnst_car_size_medium * car_size_medium +
++         b_rdc.nd.cmpnst_car_size_large * car_size_large
++     ) +
++     b_rdc.nd.cmpnst_pt_has * pt_has +
++     b_rdc.nd.cmpnst_bi_access * bi_access +
++     b_rdc.nd.cmpnst_ebi_access * ebi_access +
++     b_rdc.nd.cmpnst_hh_size * hh_size +
++     b_rdc.nd.cmpnst_age * age +
++     b_rdc.nd.cmpnst_sex_male * sex_male +
++     b_rdc.nd.cmpnst_educ_mandatory * educ_mandatory +
++     b_rdc.nd.cmpnst_educ_secondary * educ_secondary +
++     b_rdc.nd.cmpnst_educ_higher * educ_higher +
++     b_rdc.nd.cmpnst_concern * LV_concern +
++     b_rdc.nd.cmpnst_resp * LV_resp +
++     b_rdc.nd.cmpnst_effic * LV_effic +
++     b_rdc.nd.cmpnst_exp * LV_exp +
++     b_rdc.nd.cmpnst_log_road_acc * log_road_acc +
++     b_rdc.nd.cmpnst_log_pt_acc * log_pt_acc
++ 
++   V[["shrt.flghts"]] = asc_shrt.flghts +
++     b_shrt.flghts_co2_initial * co2_initial +
++     b_shrt.flghts_income * income +
++     b_shrt.flghts_emp_full * emp_full +
++     b_shrt.flghts_n_commute * n_commute +
++     b_shrt.flghts_ho * ho +
++     b_shrt.flghts_pol_scale * LV_pol_scale +
++     b_shrt.flghts_health * LV_health +
++     b_shrt.flghts_n_short_flight * n_short_flight +
++     b_shrt.flghts_hh_size * hh_size +
++     b_shrt.flghts_age * age +
++     b_shrt.flghts_sex_male * sex_male +
++     b_shrt.flghts_educ_mandatory * educ_mandatory +
++     b_shrt.flghts_educ_secondary * educ_secondary +
++     b_shrt.flghts_educ_higher * educ_higher +
++     b_shrt.flghts_concern * LV_concern +
++     b_shrt.flghts_resp * LV_resp +
++     b_shrt.flghts_effic * LV_effic +
++     b_shrt.flghts_exp * LV_exp
++ 
++   V[["mdm.flghts"]] = asc_mdm.flghts +
++     b_mdm.flghts_co2_initial * co2_initial +
++     b_mdm.flghts_income * income +
++     b_mdm.flghts_emp_full * emp_full +
++     b_mdm.flghts_n_commute * n_commute +
++     b_mdm.flghts_ho * ho +
++     b_mdm.flghts_pol_scale * LV_pol_scale +
++     b_mdm.flghts_health * LV_health +
++     b_mdm.flghts_n_medium_flight * n_medium_flight +
++     b_mdm.flghts_hh_size * hh_size +
++     b_mdm.flghts_age * age +
++     b_mdm.flghts_sex_male * sex_male +
++     b_mdm.flghts_educ_mandatory * educ_mandatory +
++     b_mdm.flghts_educ_secondary * educ_secondary +
++     b_mdm.flghts_educ_higher * educ_higher +
++     b_mdm.flghts_concern * LV_concern +
++     b_mdm.flghts_resp * LV_resp +
++     b_mdm.flghts_effic * LV_effic +
++     b_mdm.flghts_exp * LV_exp
++ 
++   V[["lng.flghts"]] = asc_lng.flghts +
++     b_lng.flghts_co2_initial * co2_initial +
++     b_lng.flghts_income * income +
++     b_lng.flghts_emp_full * emp_full +
++     b_lng.flghts_n_commute * n_commute +
++     b_lng.flghts_ho * ho +
++     b_lng.flghts_pol_scale * LV_pol_scale +
++     b_lng.flghts_health * LV_health +
++     b_lng.flghts_n_long_flight * n_long_flight +
++     b_lng.flghts_hh_size * hh_size +
++     b_lng.flghts_age * age +
++     b_lng.flghts_sex_male * sex_male +
++     b_lng.flghts_educ_mandatory * educ_mandatory +
++     b_lng.flghts_educ_secondary * educ_secondary +
++     b_lng.flghts_educ_higher * educ_higher +
++     b_lng.flghts_concern * LV_concern +
++     b_lng.flghts_resp * LV_resp +
++     b_lng.flghts_effic * LV_effic +
++     b_lng.flghts_exp * LV_exp
++ 
++   V[["dt"]] = asc_dt +
++     b_dt_co2_initial * co2_initial +
++     b_dt_income * income +
++     b_dt_emp_full * emp_full +
++     b_dt_n_commute * n_commute +
++     b_dt_ho * ho +
++     b_dt_pol_scale * LV_pol_scale +
++     b_dt_health * LV_health +
++     b_dt_hh_size * hh_size +
++     b_dt_age * age +
++     b_dt_sex_male * sex_male +
++     b_dt_educ_mandatory * educ_mandatory +
++     b_dt_educ_secondary * educ_secondary +
++     b_dt_educ_higher * educ_higher +
++     b_dt_diet_omnivore * diet_omnivore +
++     b_dt_concern * LV_concern +
++     b_dt_resp * LV_resp +
++     b_dt_effic * LV_effic +
++     b_dt_exp * LV_exp
++ 
++   V[["inslt.rf"]] = asc_inslt.rf +
++     b_inslt.rf_co2_initial * co2_initial +
++     b_inslt.rf_income * income +
++     b_inslt.rf_emp_full * emp_full +
++     b_inslt.rf_n_commute * n_commute +
++     b_inslt.rf_ho * ho +
++     b_inslt.rf_pol_scale * LV_pol_scale +
++     b_inslt.rf_health * LV_health +
++     b_inslt.rf_re_standard_old * re_standard_old +
++     b_inslt.rf_log_re_area * log_re_area +
++     b_inslt.rf_hh_size * hh_size +
++     b_inslt.rf_age * age +
++     b_inslt.rf_sex_male * sex_male +
++     b_inslt.rf_educ_mandatory * educ_mandatory +
++     b_inslt.rf_educ_secondary * educ_secondary +
++     b_inslt.rf_educ_higher * educ_higher +
++     b_inslt.rf_concern * LV_concern +
++     b_inslt.rf_resp * LV_resp +
++     b_inslt.rf_effic * LV_effic +
++     b_inslt.rf_exp * LV_exp
++ 
++   V[["inslt.fcd"]] = asc_inslt.fcd +
++     b_inslt.fcd_co2_initial * co2_initial +
++     b_inslt.fcd_income * income +
++     b_inslt.fcd_emp_full * emp_full +
++     b_inslt.fcd_n_commute * n_commute +
++     b_inslt.fcd_ho * ho +
++     b_inslt.fcd_pol_scale * LV_pol_scale +
++     b_inslt.fcd_health * LV_health +
++     b_inslt.fcd_re_standard_old * re_standard_old +
++     b_inslt.fcd_log_re_area * log_re_area +
++     b_inslt.fcd_hh_size * hh_size +
++     b_inslt.fcd_age * age +
++     b_inslt.fcd_sex_male * sex_male +
++     b_inslt.fcd_educ_mandatory * educ_mandatory +
++     b_inslt.fcd_educ_secondary * educ_secondary +
++     b_inslt.fcd_educ_higher * educ_higher +
++     b_inslt.fcd_concern * LV_concern +
++     b_inslt.fcd_resp * LV_resp +
++     b_inslt.fcd_effic * LV_effic +
++     b_inslt.fcd_exp * LV_exp
++ 
++   V[["rplc.wndws"]] = asc_rplc.wndws +
++     b_rplc.wndws_co2_initial * co2_initial +
++     b_rplc.wndws_income * income +
++     b_rplc.wndws_emp_full * emp_full +
++     b_rplc.wndws_n_commute * n_commute +
++     b_rplc.wndws_ho * ho +
++     b_rplc.wndws_pol_scale * LV_pol_scale +
++     b_rplc.wndws_health * LV_health +
++     b_rplc.wndws_re_standard_old * re_standard_old +
++     b_rplc.wndws_log_re_area * log_re_area +
++     b_rplc.wndws_hh_size * hh_size +
++     b_rplc.wndws_age * age +
++     b_rplc.wndws_sex_male * sex_male +
++     b_rplc.wndws_educ_mandatory * educ_mandatory +
++     b_rplc.wndws_educ_secondary * educ_secondary +
++     b_rplc.wndws_educ_higher * educ_higher +
++     b_rplc.wndws_concern * LV_concern +
++     b_rplc.wndws_resp * LV_resp +
++     b_rplc.wndws_effic * LV_effic +
++     b_rplc.wndws_exp * LV_exp
++ 
++   V[["vntltn"]] = asc_vntltn +
++     b_vntltn_co2_initial * co2_initial +
++     b_vntltn_income * income +
++     b_vntltn_emp_full * emp_full +
++     b_vntltn_n_commute * n_commute +
++     b_vntltn_ho * ho +
++     b_vntltn_pol_scale * LV_pol_scale +
++     b_vntltn_health * LV_health +
++     b_vntltn_re_standard_old * re_standard_old +
++     b_vntltn_log_re_area * log_re_area +
++     b_vntltn_hh_size * hh_size +
++     b_vntltn_age * age +
++     b_vntltn_sex_male * sex_male +
++     b_vntltn_educ_mandatory * educ_mandatory +
++     b_vntltn_educ_secondary * educ_secondary +
++     b_vntltn_educ_higher * educ_higher +
++     b_vntltn_concern * LV_concern +
++     b_vntltn_resp * LV_resp +
++     b_vntltn_effic * LV_effic +
++     b_vntltn_exp * LV_exp
++ 
++   V[["ht.pmp"]] = asc_ht.pmp +
++     b_ht.pmp_co2_initial * co2_initial +
++     b_ht.pmp_income * income +
++     b_ht.pmp_emp_full * emp_full +
++     b_ht.pmp_n_commute * n_commute +
++     b_ht.pmp_ho * ho +
++     b_ht.pmp_pol_scale * LV_pol_scale +
++     b_ht.pmp_health * LV_health +
++     b_ht.pmp_re_standard_old * re_standard_old +
++     b_ht.pmp_log_re_area * log_re_area +
++     b_ht.pmp_hh_size * hh_size +
++     b_ht.pmp_age * age +
++     b_ht.pmp_sex_male * sex_male +
++     b_ht.pmp_educ_mandatory * educ_mandatory +
++     b_ht.pmp_educ_secondary * educ_secondary +
++     b_ht.pmp_educ_higher * educ_higher +
++     b_ht.pmp_concern * LV_concern +
++     b_ht.pmp_resp * LV_resp +
++     b_ht.pmp_effic * LV_effic +
++     b_ht.pmp_exp * LV_exp
++ 
++   V[["slr.pnls"]] = asc_slr.pnls +
++     b_slr.pnls_co2_initial * co2_initial +
++     b_slr.pnls_income * income +
++     b_slr.pnls_emp_full * emp_full +
++     b_slr.pnls_n_commute * n_commute +
++     b_slr.pnls_ho * ho +
++     b_slr.pnls_pol_scale * LV_pol_scale +
++     b_slr.pnls_health * LV_health +
++     b_slr.pnls_re_standard_old * re_standard_old +
++     b_slr.pnls_log_re_area * log_re_area +
++     b_slr.pnls_hh_size * hh_size +
++     b_slr.pnls_age * age +
++     b_slr.pnls_sex_male * sex_male +
++     b_slr.pnls_educ_mandatory * educ_mandatory +
++     b_slr.pnls_educ_secondary * educ_secondary +
++     b_slr.pnls_educ_higher * educ_higher +
++     b_slr.pnls_concern * LV_concern +
++     b_slr.pnls_resp * LV_resp +
++     b_slr.pnls_effic * LV_effic +
++     b_slr.pnls_exp * LV_exp
++ 
++   V[["rdc.tmp"]] = asc_rdc.tmp +
++     b_rdc.tmp_co2_initial * co2_initial +
++     b_rdc.tmp_income * income +
++     b_rdc.tmp_emp_full * emp_full +
++     b_rdc.tmp_n_commute * n_commute +
++     b_rdc.tmp_ho * ho +
++     b_rdc.tmp_pol_scale * LV_pol_scale +
++     b_rdc.tmp_health * LV_health +
++     b_rdc.tmp_re_standard_old * re_standard_old +
++     b_rdc.tmp_log_re_area * log_re_area +
++     b_rdc.tmp_hh_size * hh_size +
++     b_rdc.tmp_age * age +
++     b_rdc.tmp_sex_male * sex_male +
++     b_rdc.tmp_educ_mandatory * educ_mandatory +
++     b_rdc.tmp_educ_secondary * educ_secondary +
++     b_rdc.tmp_educ_higher * educ_higher +
++     b_rdc.tmp_concern * LV_concern +
++     b_rdc.tmp_resp * LV_resp +
++     b_rdc.tmp_effic * LV_effic +
++     b_rdc.tmp_exp * LV_exp
++ 
++   V[["crtfct"]] = asc_crtfct +
++     b_crtfct_price_certificate * price_certificate +
++     b_crtfct_co2_initial * co2_initial +
++     b_crtfct_income * income +
++     b_crtfct_emp_full * emp_full +
++     b_crtfct_n_commute * n_commute +
++     b_crtfct_ho * ho +
++     b_crtfct_pol_scale * LV_pol_scale +
++     b_crtfct_health * LV_health +
++     b_crtfct_hh_size * hh_size +
++     b_crtfct_age * age +
++     b_crtfct_sex_male * sex_male +
++     b_crtfct_educ_mandatory * educ_mandatory +
++     b_crtfct_educ_secondary * educ_secondary +
++     b_crtfct_educ_higher * educ_higher +
++     b_crtfct_concern * LV_concern +
++     b_crtfct_resp * LV_resp +
++     b_crtfct_effic * LV_effic +
++     b_crtfct_exp * LV_exp
++ 
++   V[["co2.offset"]] = asc_co2.offset +
++     b_co2.offset_price_certificate * price_certificate +
++     b_co2.offset_co2_initial * co2_initial +
++     b_co2.offset_income * income +
++     b_co2.offset_emp_full * emp_full +
++     b_co2.offset_n_commute * n_commute +
++     b_co2.offset_ho * ho +
++     b_co2.offset_pol_scale * LV_pol_scale +
++     b_co2.offset_health * LV_health +
++     b_co2.offset_hh_size * hh_size +
++     b_co2.offset_age * age +
++     b_co2.offset_sex_male * sex_male +
++     b_co2.offset_educ_mandatory * educ_mandatory +
++     b_co2.offset_educ_secondary * educ_secondary +
++     b_co2.offset_educ_higher * educ_higher +
++     b_co2.offset_concern * LV_concern +
++     b_co2.offset_resp * LV_resp +
++     b_co2.offset_effic * LV_effic +
++     b_co2.offset_exp * LV_exp
++ 
++   V[["undercomp"]] = asc_undercomp +
++     b_undercomp_price_certificate * price_certificate +
++     b_undercomp_co2_initial * co2_initial +
++     b_undercomp_income * income +
++     b_undercomp_emp_full * emp_full +
++     b_undercomp_n_commute * n_commute +
++     b_undercomp_ho * ho +
++     b_undercomp_pol_scale * LV_pol_scale +
++     b_undercomp_health * LV_health +
++     b_undercomp_hh_size * hh_size +
++     b_undercomp_age * age +
++     b_undercomp_sex_male * sex_male +
++     b_undercomp_educ_mandatory * educ_mandatory +
++     b_undercomp_educ_secondary * educ_secondary +
++     b_undercomp_educ_higher * educ_higher +
++     b_undercomp_concern * LV_concern +
++     b_undercomp_resp * LV_resp +
++     b_undercomp_effic * LV_effic +
++     b_undercomp_exp * LV_exp
++ 
++   alpha <- setNames(as.list(rep(alpha_base, length(alternatives))), alternatives)
++ 
++   gamma <- list(
++     rplc.r.sll = gamma_rplc.r.sll,
++     rdc.nd.cmpnst = gamma_rdc.nd.cmpnst,
++     shrt.flghts = gamma_shrt.flghts,
++     mdm.flghts = gamma_mdm.flghts,
++     lng.flghts = gamma_lng.flghts,
++     dt = gamma_dt,
++     inslt.rf = gamma_inslt.rf,
++     inslt.fcd = gamma_inslt.fcd,
++     rplc.wndws = gamma_rplc.wndws,
++     vntltn = gamma_vntltn,
++     ht.pmp = gamma_ht.pmp,
++     slr.pnls = gamma_slr.pnls,
++     rdc.tmp = gamma_rdc.tmp,
++     crtfct = gamma_crtfct,
++     co2.offset = gamma_co2.offset,
++     undercomp = gamma_undercomp
++   )
++ 
++   cost <- list(
++     outside.good = 1,
++     rplc.r.sll = 1,
++     rdc.nd.cmpnst = 1,
++     shrt.flghts = 1,
++     mdm.flghts = 1,
++     lng.flghts = 1,
++     dt = 1,
++     inslt.rf = 1,
++     inslt.fcd = 1,
++     rplc.wndws = 1,
++     vntltn = 1,
++     ht.pmp = 1,
++     slr.pnls = 1,
++     rdc.tmp = 1,
++     crtfct = 1,
++     co2.offset = 1,
++     undercomp = 1
++   )
++ 
++   avail <- list(
++     outside.good = avail_outside.good,
++     rplc.r.sll = avail_rplc.r.sll,
++     rdc.nd.cmpnst = avail_rdc.nd.cmpnst,
++     shrt.flghts = avail_shrt.flghts,
++     mdm.flghts = avail_mdm.flghts,
++     lng.flghts = avail_lng.flghts,
++     dt = avail_dt,
++     inslt.rf = avail_inslt.rf,
++     inslt.fcd = avail_inslt.fcd,
++     rplc.wndws = avail_rplc.wndws,
++     vntltn = avail_vntltn,
++     ht.pmp = avail_ht.pmp,
++     slr.pnls = avail_slr.pnls,
++     rdc.tmp = avail_rdc.tmp,
++     crtfct = avail_crtfct,
++     co2.offset = avail_co2.offset,
++     undercomp = avail_undercomp
++   )
++ 
++   mdcev_settings <- list(
++     alternatives = alternatives,
++     avail = avail,
++     continuousChoice = continuousChoice,
++     utilities = V,
++     outside = "outside.good",
++     alpha = alpha,
++     gamma = gamma,
++     sigma = sigma,
++     cost = cost,
++     budget = budget
++   )
++ 
++   P[["choice"]] <- apollo_mdcev(mdcev_settings, functionality)
++ 
++   # likelihood of the whole model
++   P <- apollo_combineModels(P, apollo_inputs, functionality)
++ 
++   P <- apollo_avgInterDraws(P, apollo_inputs, functionality)
++ 
++   P <- apollo_prepareProb(P, apollo_inputs, functionality)
++ 
++   return(P)
++ }
+> 
+> # apollo_probabilities(apollo_beta, apollo_inputs)
+> 
+> apollo.15 <- apollo_estimate(apollo_beta, apollo_fixed, apollo_probabilities, apollo_inputs)
+Preparing user-defined functions.
+
+Testing likelihood function...
+
+Overview of choices for model component m_pol_scale:
+                              1      2      3      4   5      6      7      8
+Times chosen              57.00 121.00 252.00 360.00 391 730.00 319.00 291.00
+Percentage chosen overall  2.04   4.33   9.03  12.89  14  26.15  11.43  10.42
+                               9    10    11
+Times chosen              186.00 49.00 36.00
+Percentage chosen overall   6.66  1.76  1.29
+
+Overview of choices for model component m_health:
+                             1     2      3       4      5
+Times chosen              5.00 73.00 408.00 1494.00 812.00
+Percentage chosen overall 0.18  2.61  14.61   53.51  29.08
+
+Overview of choices for model component m_concern:
+                              1      2      3       4      5
+Times chosen              43.00 183.00 967.00 1237.00 362.00
+Percentage chosen overall  1.54   6.55  34.63   44.31  12.97
+
+Overview of choices for model component m_resp:
+                              1     2      3      4      5      6      7      8
+Times chosen              62.00 61.00 100.00 189.00 172.00 488.00 369.00 557.00
+Percentage chosen overall  2.22  2.18   3.58   6.77   6.16  17.48  13.22  19.95
+                              9     10     11
+Times chosen              469.0 145.00 180.00
+Percentage chosen overall  16.8   5.19   6.45
+
+Overview of choices for model component m_effic:
+                              1     2      3     4      5      6      7     8
+Times chosen              59.00 77.00 174.00 254.0 227.00 506.00 352.00 497.0
+Percentage chosen overall  2.11  2.76   6.23   9.1   8.13  18.12  12.61  17.8
+                               9    10     11
+Times chosen              332.00 96.00 218.00
+Percentage chosen overall  11.89  3.44   7.81
+
+Overview of choices for model component m_exp:
+                               1      2     3      4      5      6     7      8
+Times chosen              220.00 220.00 310.0 343.00 228.00 424.00 268.0 277.00
+Percentage chosen overall   7.88   7.88  11.1  12.29   8.17  15.19   9.6   9.92
+                               9    10     11
+Times chosen              241.00 73.00 188.00
+Percentage chosen overall   8.63  2.61   6.73
+Apollo found a model component of type MDCEV without a componentName.
+  The name was set to "choice" by default.
+
+Overview of choices for model component choice:
+                                   outside rplc.r.sll rdc.nd.cmpnst shrt.flghts
+Times available                    2792.00    1858.00       2498.00      472.00
+Observations in which chosen       2792.00     711.00       1082.00      207.00
+Average consumption when available   62.16       5.27          1.86        1.56
+Average consumption when chosen      62.16      13.77          4.28        3.55
+                                   mdm.flghts lng.flghts      dt inslt.rf
+Times available                        911.00     509.00 2792.00   967.00
+Observations in which chosen           344.00     185.00  734.00   240.00
+Average consumption when available       5.26      10.35    0.76     3.05
+Average consumption when chosen         13.92      28.48    2.90    12.31
+                                   inslt.fcd rplc.wndws  vntltn ht.pmp slr.pnls
+Times available                       967.00     967.00 1241.00 596.00   958.00
+Observations in which chosen          164.00     242.00   82.00 346.00   515.00
+Average consumption when available      2.96       2.23    0.37  25.32     3.57
+Average consumption when chosen        17.47       8.93    5.67  43.61     6.64
+                                   rdc.tmp  crtfct co2.offset undercomp
+Times available                    2792.00 2792.00    1253.00   2792.00
+Observations in which chosen       1489.00  807.00     171.00   1082.00
+Average consumption when available    3.24    5.94       2.28      8.19
+Average consumption when chosen       6.08   20.55      16.68     21.14
+WARNING: Alternative "outside" is always chosen when available in model
+  component "choice". 
+
+Pre-processing likelihood function...
+Creating cluster...
+Preparing workers for multithreading...
+Analytical gradients could not be calculated for all components,
+  numerical gradients will be used.
+
+Testing influence of parameters....................................................................................................................................................................................................................................................................
+Starting main estimation
+
+BGW is using FD derivatives for model Jacobian. (Caller did not provide derivatives.)
+
+
+Iterates will be written to: 
+ apollo_output/apollo.15_iterations.csv
+    it    nf     F            RELDF    PRELDF    RELDX    MODEL stppar
+     0     1 9.627804156e+04
+     1     4 9.413704986e+04 2.224e-02 1.333e-02 2.66e-02   G   1.06e+00
+
+Execution halted

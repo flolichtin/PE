@@ -1,0 +1,105 @@
+---
+title: "rmdcev"
+output: rmarkdown::pdf_document
+vignette: >
+  %\VignetteIndexEntry{rmdcev}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(rmdcev)
+library(tidyverse)
+```
+
+## Resources
+
+- https://github.com/plloydsmith/rmdcev
+- See `?rmdcev` for valuable resources (or README on github). In particular: https://journal.r-project.org/archive/2020/RJ-2021-015/RJ-2021-015.pdf
+- See documentation of functions (applied below) and understand args.
+
+## Example from README
+
+### Estimation
+
+As an example, we can simulate some data using Bhat (2008)‘s ’Gamma’ specification. In this example, we are simulating data for 2,000 individuals and 10 non-numeraire alternatives. We will randomly generate the parameter values to simulate the data and then check these values to our estimation results.
+
+```{r}
+set.seed(12345)
+model <- "gamma"
+nobs <- 2000
+nalts <- 10
+sim.data <- rmdcev::GenerateMDCEVData(model = model, nobs = nobs, nalts = nalts)
+str(sim.data)
+```
+
+Estimate model using MLE (note that we set `psi_ascs = 0` to omit any alternative-specific constants)
+
+```{r}
+mdcev_est <- mdcev(~ b1 + b2 + b3 + b4 + b5 + b6,
+                   data = sim.data$data,
+                   psi_ascs = 0,  # ?
+                   model = model,  # alpha, gamma, hybrid or hybrid0
+                   algorithm = "MLE")
+```
+
+Summarize results
+
+```{r}
+summary(mdcev_est)
+```
+
+Compare estimates to true values
+
+```{r}
+coefs <-
+  sim.data$parms_true %>%
+  as_tibble() %>% 
+  mutate(true = as.numeric(true)) %>%
+  cbind(summary(mdcev_est)[["CoefTable"]]) %>%
+  mutate(cl_lo = Estimate - 1.96 * Std.err,
+         cl_hi = Estimate + 1.96 * Std.err)
+
+coefs
+```
+Compare outputs using a figure
+
+```{r}
+coefs %>%
+    ggplot(aes(y = Estimate, x = true))  +
+    geom_point(size=2) +
+    geom_text(label=coefs$parms,position=position_jitter(width=.5,height=1)) +
+    geom_abline(slope = 1) +
+    geom_errorbar(aes(ymin=cl_lo,ymax=cl_hi,width=0.2))
+```
+
+### Welfare simulation
+
+Create policy simulations (these are ‘no change’ policies with no effects)
+
+```{r}
+npols <- 2  # number of policies
+(policies <- CreateBlankPolicies(npols, mdcev_est))
+df_sim <- PrepareSimulationData(mdcev_est, policies, nsims = 1)
+```
+
+Simulate welfare changes
+
+```{r}
+wtp <- mdcev.sim(df_sim$df_indiv,
+                 df_common = df_sim$df_common,
+                 sim_options = df_sim$sim_options,
+                 cond_err = 1,
+                 nerrs = 15,
+                 sim_type = "welfare")
+
+summary(wtp)
+```
+

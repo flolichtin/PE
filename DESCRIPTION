@@ -1,0 +1,28 @@
+Package: PE
+Title: Data Preparation for Priority Evaluator Experiment
+Version: 0.0.0.9007
+Authors@R: 
+    person("Daniel", "Heimgartner", , "daniel.heimgartner@ivt.baug.ethz.ch", role = c("aut", "cre"))
+Description: See title
+License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
+    license
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Depends: 
+    R (>= 2.10)
+LazyData: true
+Imports: 
+    devtools,
+    dplyr,
+    glue,
+    Heimisc,
+    magrittr,
+    purrr,
+    readxl,
+    sjlabelled,
+    tidyselect
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
