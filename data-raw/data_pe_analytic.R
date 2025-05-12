@@ -407,6 +407,8 @@ variables <- sapply(data_pe_analytic, class)
 as.data.frame(variables)
 variable_class <- as.data.frame(variables)
 
+data_pe_analytic <- data_pe_analytic %>%
+  filter(PE_diet.enabled == TRUE)
 
 
 ###############################################################################.
