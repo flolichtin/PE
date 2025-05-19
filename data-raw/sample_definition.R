@@ -1,7 +1,7 @@
 ######## code to create flag variables for sample definition
 #title: "Descriptives_PE"
 #author: "Florian"
-#date: "2024-04-18"
+#date: "2025-05-15"
 ##########-
 
 
@@ -121,269 +121,7 @@ df %>%                                             # show distribution
   geom_boxplot(aes(x = initial))
 
 
-# # Ver 1 #################
-# # define upper bounds for outliers
-# # Calculate the lower and upper bounds for outliers
-# upper_bound_short_flights <- quantile(df$PE_reference__short_flights, 0.75) + 1.5 * IQR(df$PE_reference__short_flights)
-# upper_bound_medium_flights <- quantile(df$PE_reference__medium_flights, 0.75) + 1.5 * IQR(df$PE_reference__medium_flights)
-# upper_bound_long_flights <- quantile(df$PE_reference__long_flights, 0.75) + 1.5 * IQR(df$PE_reference__long_flights)
-# upper_bound_house_size <- quantile(df$PE_reference__house_size, 0.75) + 1.5 * IQR(df$PE_reference__house_size)
-#
-#
-#
-# # create flag that indicates if respondent is above upper bound
-# df_outlier <- df %>%
-#   mutate(EXCL_outlier =
-#     case_when(
-#       PE_reference__short_flights > upper_bound_short_flights |
-#       PE_reference__short_flights > upper_bound_short_flights |
-#       PE_reference__short_flights > upper_bound_short_flights |
-#       PE_reference__short_flights > upper_bound_short_flights  ~ TRUE,
-#       TRUE ~ FALSE
-#     )
-#   ) %>%
-#   select(ID, EXCL_outlier)
-#
-# freq.table <- table(df_outlier$EXCL_outlier)
-# prop.table(freq.table)
-# # FALSE  TRUE
-# # 0.8191551 0.1808449
-#
-# # Ver 2 #################
-# # define upper bounds for outliers - based on respondents that had option available
-# # Calculate the lower and upper bounds for outliers
-# df_short_flights <- df %>%
-#   filter(PE_reduce_short_flights__visible == TRUE)
-# upper_bound_short_flights <- quantile(df_short_flights$PE_reference__short_flights, 0.75) + 1.5 * IQR(df_short_flights$PE_reference__short_flights)
-#
-# df_medium_flights <- df %>%
-#   filter(PE_reduce_medium_flights__visible == TRUE)
-# upper_bound_medium_flights <- quantile(df_medium_flights$PE_reference__medium_flights, 0.75) + 1.5 * IQR(df_medium_flights$PE_reference__medium_flights)
-#
-# df_long_flights <- df %>%
-#   filter(PE_reduce_long_flights__visible == TRUE)
-# upper_bound_long_flights <- quantile(df_long_flights$PE_reference__long_flights, 0.75) + 1.5 * IQR(df_long_flights$PE_reference__long_flights)
-#
-#
-# upper_bound_house_size <- quantile(df$PE_reference__house_size, 0.75) + 1.5 * IQR(df$PE_reference__house_size)
-#
-#
-# # create flag that indicates if respondent is above upper bound
-# df_outlier <- df %>%
-#   mutate(EXCL_outlier =
-#            case_when(
-#              PE_reference__short_flights > upper_bound_short_flights |
-#                PE_reference__short_flights > upper_bound_short_flights |
-#                PE_reference__short_flights > upper_bound_short_flights |
-#                PE_reference__short_flights > upper_bound_short_flights  ~ TRUE,
-#              TRUE ~ FALSE
-#            )
-#   ) %>%
-#   select(ID, EXCL_outlier)
-#
-# freq.table <- table(df_outlier$EXCL_outlier)
-# prop.table(freq.table)
-# # FALSE  TRUE
-# # 0.98553241 0.01446759
-#
 
-
-
-# # Ver 3 #################
-# # define upper bounds for outliers of carbon emissions
-# upper_bound_emissions <- quantile(df$initial, 0.75) + 1.5 * IQR(df$initial)
-#
-#
-# # create flag that indicates if respondent is above upper bound
-# df_outlier <- df %>%
-#   mutate(EXCL_outlier =
-#            case_when(
-#              initial > upper_bound_emissions  ~ TRUE,
-#              TRUE ~ FALSE
-#            )
-#   ) %>%
-#   select(ID, EXCL_outlier)
-#
-# freq.table <- table(df_outlier$EXCL_outlier)
-# prop.table(freq.table)
-# # FALSE  TRUE
-# # 0.96585648 0.03414352
-#
-#
-#
-#
-#
-#
-#
-#
-#
-# ###### 2.3 Non-engagement PE ###
-#
-# # click count:   df$PE_w3_pe_click_count
-#
-# df %>%                                             # show distribution
-#   ggplot() +
-#   geom_density(aes(x = PE_w3_pe_click_count))
-#
-# # timer:  df$PE_w3_pe_timer_submit
-# df %>%                                             # show distribution
-#   ggplot() +
-#   geom_density(aes(x = PE_w3_pe_timer_submit))
-#
-# df %>%                                             # show distribution
-#   ggplot() +
-#   geom_density(aes(x = PE_w3_pe_timer_submit))
-#
-#
-# # compare click count and emission difference
-# df %>%
-#   ggplot() +
-#   geom_point(aes(x = PE_w3_pe_click_count, y = diff_total))
-#
-# df %>%
-#   ggplot() +
-#   geom_point(aes(x = PE_w3_pe_click_count, y = diff_total)) +
-#   coord_cartesian(xlim = c(1, 20),
-#                   ylim = c(0, 200))
-#
-# # compare timer and emission difference
-# df %>%
-#   ggplot() +
-#   geom_point(aes(x = PE_w3_pe_timer_submit, y = diff_total)) +
-#   coord_cartesian(xlim = c(1, 60),
-#                   ylim = c(0, 200))
-#
-#
-#
-# # plot share of respondents with diff = 0 grouped by clicks
-# plot <- df %>%
-#   group_by(PE_w3_pe_click_count) %>%
-#   summarize(share_zero_diff = sum(diff_total == 0) / 3456)
-#
-# plot %>%
-#   ggplot() +
-#   geom_point(aes(x = PE_w3_pe_click_count, y = share_zero_diff)) +
-#   coord_cartesian(xlim = c(1, 20))
-#
-# ### change in
-#
-# # plot share of respondents with diff = 0 grouped by time
-# plot <- df %>%
-#   mutate(timer = round(PE_w3_pe_timer_submit, digits = 0)) %>%
-#   group_by(timer) %>%
-#   summarize(share_zero_diff = sum(diff_total == 0) / 3456)
-#
-# plot %>%
-#   ggplot() +
-#   geom_point(aes(x = timer, y = share_zero_diff)) +
-#   coord_cartesian(xlim = c(1, 120))
-#
-#
-# # how to define non-engagement? combination of number of clicks and zero emission change..
-#
-# # combinatio of number of clicks/time and emission change
-#
-# # exclusion criteria: must be true for all of these
-# # clicks:            < 3 clicks
-# # time:              < 60 seconds
-# # emission change:   = 0 kg CO2
-#
-#
-# df_non_engagement <- df %>%
-#   mutate(
-#     EXCL_non_engagement =
-#       case_when(
-#         PE_w3_pe_click_count < 3 & PE_w3_pe_timer_submit < 60 & diff_total == 0 ~ TRUE,
-#         TRUE ~ FALSE
-#       )
-#   ) %>%
-#   select(ID, EXCL_non_engagement)
-#
-# freq.table <- table(df_non_engagement$EXCL_non_engagement)
-# prop.table(freq.table)
-# # FALSE  TRUE
-# # 0.91724537 0.08275463
-#
-#
-# ###### 2.4 Increased emissions PE ###
-#
-# # emissions:            df$diff_total
-# df %>%                                             # show distribution
-#   ggplot() +
-#   geom_density(aes(x = diff_total))
-#
-# # remove diff_total positive
-# df_emissions <- df %>%
-#   mutate(
-#     EXCL_incr_emissions =
-#       case_when(
-#         diff_total < 0 ~ TRUE,
-#         TRUE ~ FALSE
-#       )
-#   )%>%
-#   select(ID, EXCL_incr_emissions)
-#
-# freq.table <- table(df_emissions$EXCL_incr_emissions)
-# prop.table(freq.table)
-# # FALSE  TRUE
-# # 0.998842593 0.001157407
-#
-#
-#
-#
-#
-# ###### 2.5 Combined exclusions ###
-# # combine dataframes
-# df_sample_exclusion <- df_outlier %>%
-#   left_join(df_non_engagement, by = "ID") %>%
-#   left_join(df_emissions, by = "ID")
-#
-# # create EXCL variable that excludes all positive cases based on one of the predefined definitions
-# sample_definition <- df_sample_exclusion %>%
-#   mutate(
-#     EXCL_all =
-#       case_when(
-#         EXCL_outlier == TRUE | EXCL_non_engagement == TRUE | EXCL_incr_emissions == TRUE ~ TRUE,
-#         TRUE ~ FALSE
-#       )
-#   )
-#
-#
-# freq.table <- table(sample_definition$EXCL_all)
-# prop.table(freq.table)
-# # FALSE  TRUE
-# # 0.8862847 0.1137153
-#
-#
-#
-# usethis::use_data(sample_definition, overwrite = TRUE)
-#
-#
-#
-#
-# ## test for different exclusions
-# sample_definition %>%
-#   filter(EXCL_outlier == FALSE)
-#
-# sample_definition %>%
-#   filter(EXCL_non_engagement == FALSE)
-#
-# sample_definition %>%
-#   filter(EXCL_incr_emissions == FALSE)
-#
-# sample_definition %>%
-#   filter(EXCL_all == FALSE)
-
-
-
-
-
-
-
-
-
-
-# Ver 4 #################
 ###### 4.1 Outliers #####
 
 ## FILTER OUTLIERS (EXCL_outlier)
@@ -405,7 +143,7 @@ df_outlier <- df %>%
 freq.table <- table(df_outlier$EXCL_outlier)
 prop.table(freq.table)
 # FALSE  TRUE
-# 0.96585648 0.03414352
+# 0.96612623 0.03387377
 
 
 
@@ -437,24 +175,7 @@ prop.table(freq.table)
 # FALSE  TRUE
 # 0.91724537 0.08275463
 
-###### 4.3 Increased emissions PE ######
-# ## FILTER INCREASED EMISSIONS TOTAL (EXCL_incr_emissions)
-#
-# # remove diff_total positive
-# df_incr_emissions <- df %>%
-#   mutate(
-#     EXCL_incr_emissions =
-#       case_when(
-#         diff_total < 0 ~ TRUE,
-#         TRUE ~ FALSE
-#       )
-#   )%>%
-#   select(ID, EXCL_incr_emissions)
-#
-# freq.table <- table(df_incr_emissions$EXCL_incr_emissions)
-# prop.table(freq.table)
-# # FALSE  TRUE
-# # 0.998842593 0.001157407
+
 
 
 ## FILTER INCREASED EMISSIONS STRATEGIES (EXCL_incr_emissions_strategy)
@@ -477,28 +198,7 @@ df_incr_emissions_strategy <- df %>%
 
 
 
-# df_incr_emissions_strategy <- df %>%
-#   mutate(
-#     PE_rdc_cmp_car = PE_reduce_car__reduction + PE_compensate_reduce_car__reduction
-#   ) %>%
-#   mutate(
-#     EXCL_incr_emissions_strategy =
-#       case_when(
-#         PE_replace_car__reduction > 0 ~ TRUE,
-#         PE_diet__reduction > 0 ~ TRUE,
-#         PE_rdc_cmp_car > 0 ~ TRUE,
-#         TRUE ~ FALSE
-#       )
-#   )%>%
-#   select(ID, PE_replace_car__reduction, PE_diet__reduction, PE_rdc_cmp_car, PE_reduce_car__reduction, PE_compensate_reduce_car__reduction, EXCL_incr_emissions_strategy, PE_reduce_car__annual ,PE_reference__replace_car ,PE_replace_car__select, PE_compensate_car_by_pt_long__select, PE_compensate_car_by_pt_short__select, PE_compensate_car_by_bike__select, PE_compensate_car_by_ebike__select)
 
-
-
-# test <- df_incr_emissions_strategy %>% filter(PE_replace_car__reduction > 0)
-# test <- df_incr_emissions_strategy %>% filter(PE_diet__reduction > 0)
-# test <- df_incr_emissions_strategy %>% filter(PE_rdc_cmp_car > 0)
-#
-# test <- df_incr_emissions_strategy %>% filter(EXCL_incr_emissions_strategy == TRUE)
 
 
 freq.table <- table(df_incr_emissions_strategy$EXCL_incr_emissions_strategy)
@@ -563,24 +263,9 @@ sample_definition %>% filter(EXCL_all == FALSE)
 freq.table <- table(sample_definition$EXCL_all)
 prop.table(freq.table)
 # FALSE  TRUE
-# 0.8081597 0.1918403
+# 0.8086277 0.1913723
 
 
 
 usethis::use_data(sample_definition, overwrite = TRUE)
 
-
-
-
-# ## test for different exclusions
-# sample_definition %>%
-#   filter(EXCL_outlier == FALSE)
-#
-# sample_definition %>%
-#   filter(EXCL_non_engagement == FALSE)
-#
-# sample_definition %>%
-#   filter(EXCL_incr_emissions == FALSE)
-#
-# sample_definition %>%
-#   filter(EXCL_all == FALSE)

@@ -1,7 +1,5 @@
 # PE
 
-Hoi Flo! Wie gahts?
+## Notes
 
-guet aber GIT chönntme biz iistigerfründlichermache ohni vertiefti hackerkenntnis, biz künstlichi barriere imo
-
-Nanaaa... lauft doch super! :D
+install labelr package from https://github.com/ivt-baug-ethz/labelr (Version: 0.0.2.9000)
