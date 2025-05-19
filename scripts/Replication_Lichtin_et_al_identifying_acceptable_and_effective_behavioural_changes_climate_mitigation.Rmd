@@ -4133,10 +4133,6 @@ ggplot() +
   xlab("Choice share (% of participants)") +
   theme_bw()
 
-
-ggsave(path = "/Users/flichtin/Dropbox/Apps/Overleaf/How Do Individuals With Differing Income Levels Seek to Reduce Their Carbon Emissions? Insights From a Priority Evaluator Choice Task/Figures","map_population_mitigation_strategy_choice_population_emission_reduction_with_one_time_costs.png", height = 14, width = 21, units = "cm", dpi = 600)
-
-
 ```
 
 
