@@ -14,7 +14,7 @@ or from the `.tar.gz` file. For non-R users, see the main data of interest in `i
 
 ## Dev dependencies
 
->This is not relevant for the data user...
+This is not relevant for the data user...
 
 ### Packages
 
