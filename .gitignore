@@ -6,3 +6,5 @@
 .quarto
 tmp
 inst/doc
+/doc/
+/Meta/
