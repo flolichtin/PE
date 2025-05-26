@@ -19,7 +19,30 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(PE)
+
+# packages
+library(haven)
 library(tidyverse)
+library(gridExtra)
+library(labelled)
+library(ggpubr) #to grid the plots
+library(modelsummary)
+library(estimatr)
+library(knitr)
+library(kableExtra)
+library(gt)
+library(gtExtras)
+library(vtable)
+library(here)
+library(corrplot)
+library(srvyr)
+library(ggridges)
+library(modelr)
+library(stargazer)
+library(marginaleffects)
+library(pandoc)
+library(scales)
+library(ggalluvial)
 
 df <- PE::data_replication
 ```
