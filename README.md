@@ -12,6 +12,8 @@ devtools::install_github("flolichtin/PE", build_vignettes = TRUE)
 
 or from the `.tar.gz` file. For non-R users, see the main data of interest in `inst/csv`. A codebook for the variable description (underlying `data_w`) can be found here: https://istp.ethz.ch/research/swiss-mobility-panel.html. For `data_pe` see `inst/csv/codebook_data_pe.csv`.
 
+For a script replicating the descriptives of an upcoming paper (TODO: update reference) see the `.Rmd` in `scripts`.
+
 ## Dev dependencies
 
 This is not relevant for the data user...
