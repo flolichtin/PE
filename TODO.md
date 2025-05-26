@@ -1,6 +1,6 @@
 # TODO
 
-- [ ] Export most important data to .csv
+- [x] Export most important data to .csv
   - data_pe, data_w
 - [x] Rename dfs
   - No

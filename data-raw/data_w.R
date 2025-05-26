@@ -176,4 +176,8 @@ df <-
 
 data_w <- df
 
+## remove "json" PE data
+data_w$PE_w3_pe_start_settings <- NULL
+data_w$PE_w3_pe_end_settings <- NULL
+
 usethis::use_data(data_w, overwrite = TRUE)
