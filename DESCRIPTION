@@ -15,11 +15,9 @@ Depends:
 LazyData: true
 Imports: 
     dplyr,
-    glue,
     magrittr,
     purrr,
     readxl,
-    sjlabelled,
     tidyselect
 Suggests: 
     knitr,
