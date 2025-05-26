@@ -10,27 +10,23 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
 )
 ```
 
 ```{r setup}
 library(PE)
+library(tidyverse)
+
+df <- PE::data_replication
 ```
 
 
 # Abstract: Does Climate Change Policy Have Regressive or Progressive Distributional Effects? Insights From a Priority Evaluator Experiment
 Efforts to implement urgently needed, ambitious climate policies are hampered by controversy about potentially regressive distributional effects of such policies. Regressive means that such policies could result in disproportionate costs for lower-income citizens and consumers. We study this issue bottom-up by exploring how individuals across different income groups and initial carbon footprints evaluate and trade off various behavioural changes and financial costs when having to reduce individual emissions as a result of more stringent climate policy. Specifically, we study how individuals are likely to respond when tasked with reducing their personal carbon emissions to a level that is compatible with net-zero goals. We do so by combining a carbon calculator that estimates individualized emissions and a novel priority evaluation-based methodology, which are implemented in an online survey amongst a population-representative sample in Switzerland (N=5941). This approach involves a highly individualized and interactive choice task that allows each individual to develop a set of behavioural responses and mitigation pathways to reach a personalized reduction target. We expect important insights into the policy costs individuals with different initial carbon footprints and differing income levels are likely to face, and whether, overall or for what subgroups of the population, regressive distributional effects are likely to exist. Such insights, in turn, could inform the design of compensatory measures that may be needed to achieve majority support for climate policy.
-
-
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
-
-df <- PE::data_replication
-
-```
-
 
 # Figure 2. Achieved emissionn reductions inn priority evaluator choice task
 
