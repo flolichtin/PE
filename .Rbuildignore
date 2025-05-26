@@ -3,3 +3,4 @@
 tmp
 ^data-raw$
 ^LICENSE\.md$
+^scripts$

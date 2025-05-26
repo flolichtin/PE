@@ -2,7 +2,7 @@ Package: PE
 Title: Analysis Data for the Priority Evaluator
 Version: 0.0.0.9000
 Authors@R: c(person("Florian", "Lichtin", email = "florian.lichtin@istp.ethz.ch", role = c("aut", "cre"),
-    comment = c(ORCID = "0000-0002-6447-6556"))),
+    comment = c(ORCID = "0000-0002-6447-6556")),
     person("Daniel", "Heimgartner", email = "d.heimgartners@gmail.com", role = c("aut"),
     comment = c(ORCID = "0000-0002-0643-8690")))
 Description: This repository contains the analysis-ready data from the Swiss Mobility Panel (wave 3; priority evaluator).

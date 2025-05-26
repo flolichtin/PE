@@ -1,0 +1,3958 @@
+---
+title: "Paper Replication"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{paper_replication}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(PE)
+```
+
+
+# Abstract: Does Climate Change Policy Have Regressive or Progressive Distributional Effects? Insights From a Priority Evaluator Experiment
+Efforts to implement urgently needed, ambitious climate policies are hampered by controversy about potentially regressive distributional effects of such policies. Regressive means that such policies could result in disproportionate costs for lower-income citizens and consumers. We study this issue bottom-up by exploring how individuals across different income groups and initial carbon footprints evaluate and trade off various behavioural changes and financial costs when having to reduce individual emissions as a result of more stringent climate policy. Specifically, we study how individuals are likely to respond when tasked with reducing their personal carbon emissions to a level that is compatible with net-zero goals. We do so by combining a carbon calculator that estimates individualized emissions and a novel priority evaluation-based methodology, which are implemented in an online survey amongst a population-representative sample in Switzerland (N=5941). This approach involves a highly individualized and interactive choice task that allows each individual to develop a set of behavioural responses and mitigation pathways to reach a personalized reduction target. We expect important insights into the policy costs individuals with different initial carbon footprints and differing income levels are likely to face, and whether, overall or for what subgroups of the population, regressive distributional effects are likely to exist. Such insights, in turn, could inform the design of compensatory measures that may be needed to achieve majority support for climate policy.
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+
+df <- PE::data_replication
+
+```
+
+
+# Figure 2. Achieved emissionn reductions inn priority evaluator choice task
+
+```{r Figure 2. Achieved emissionn reductions inn priority evaluator choice task, fig.height=4*1.2, fig.width=7*1.2, dpi=600, echo=FALSE}
+
+# Calculate the density and quartiles
+density_data <- density(df$target_share)
+quartiles <- quantile(df$target_share, probs = c(0.25, 0.5, 0.75))
+
+# Create a data frame of the density estimates
+density_df <- data.frame(x = density_data$x, y = density_data$y)
+
+# Find the y-values of the density at the quartile positions
+quartile_y <- sapply(quartiles, function(q) {
+  # Find the closest x value in the density data to the quartile
+  closest_x_index <- which.min(abs(density_df$x - q))
+  density_df$y[closest_x_index]
+})
+
+# Create the density plot with segmented dashed lines up to the curve
+ggplot(df, aes(x = target_share)) +
+  geom_density(fill = "grey90", alpha = 0.5) +
+  geom_segment(aes(x = quartiles[1], xend = quartiles[1], y = 0, yend = quartile_y[1]),
+               linetype = "dashed", color = "black") +
+  geom_segment(aes(x = quartiles[2], xend = quartiles[2], y = 0, yend = quartile_y[2]),
+               linetype = "dashed", color = "black") +
+  geom_segment(aes(x = quartiles[3], xend = quartiles[3], y = 0, yend = quartile_y[3]),
+               linetype = "dashed", color = "black") +
+  geom_vline(xintercept = 30, color = "palegreen4", linetype = "dashed") +
+  annotate("text", x = 21, y = 0.027, label = c("30% Target"),
+                  color = "palegreen4", size = 5, vjust = 0) +
+  # Add labels for quartiles
+  annotate("text", x = quartiles+3, y = 0.001, label = c("Q1", "Q2", "Q3"),
+                  color = "black", size = 5, vjust = 0) + 
+  scale_x_continuous(labels = label_percent(scale = 1)) +
+  theme_bw(base_size = 16) +
+  labs(
+       x = expression(paste("CO"[2], " emission reduction (in %)")), 
+       y = "Density")
+```
+
+
+# Figure 3. Predicted probabilities of reaching emission reduction target in the priority evaluator
+
+```{r Figure 3. Predicted probabilities of reaching emission reduction target in the priority evaluator, fig.height=5.91*1.4, fig.width=8.27*1.4, dpi=600, echo=FALSE}
+
+## add addtional baseline info
+df_baseline_infos <- data_smp_w1_w3 %>% 
+  select(w1_lang, w1_q56, w1_q64, pid, are_city_type_2012_red)
+
+df_modelframe <- df %>% 
+  left_join(df_baseline_infos, by = c("ID" = "pid"))
+
+
+## advanced model building with binary outcome and predictor
+# Empty model with only the predictor (Income)
+modelframe <- df_modelframe %>% 
+  mutate(
+    age_cat =
+      case_when(
+        age < 30 ~ 1,
+        age > 29 & age < 66 ~ 2,
+        age > 65 ~ 3,
+        TRUE ~ NA
+      ),
+    income_num =
+      case_when(
+        income == "under 2000 chf" ~ 1,
+        income == "2001 to 4000 chf" ~ 2,
+        income == "4001 to 6000 chf" ~ 3,
+        income == "6001 to 8000 chf" ~ 4,
+        income == "8001 to 10000 chf" ~ 5,
+        income == "10001 to 12000 chf" ~ 6,
+        income == "12001 to 14000 chf" ~ 7,
+        income == "14001 to 16000 chf" ~ 8,
+        income == "16001 to 18000 chf" ~ 9,
+        income == "above 18000 chf" ~ 10,
+        TRUE ~ NA
+      ),
+    edu_tertiary =
+          case_when(
+            edu == "compulsory" ~ 0,
+            edu == "vocational" ~ 0,
+            edu == "high school" ~ 0,
+            edu == "high. vocational" ~ 0,
+            edu ==  "Appl. sciences" ~ 1,
+            edu == "university" ~ 1,
+            edu == "other" ~ 0,
+    TRUE ~ NA
+          ),
+    cc_concern_binary =
+          case_when(
+            cc_concern == "not at all worried" ~ 0,
+            cc_concern == "not very worried" ~ 0,
+            cc_concern == "somewhat worried" ~ 0,
+            cc_concern == "very worried" ~ 1,
+            cc_concern ==  "extremely worried" ~ 1,
+    TRUE ~ NA
+    ),
+    cc_norm_num =
+          case_when(
+            cc_norm == "not at all 0" ~ 0,
+            cc_norm == "1" ~ 1,
+            cc_norm == "2" ~ 2,
+            cc_norm == "3" ~ 3,
+            cc_norm ==  "4" ~ 4,
+            cc_norm == "5" ~ 5,
+            cc_norm == "6" ~ 6,
+            cc_norm == "7" ~ 7,
+            cc_norm == "8" ~ 8,
+            cc_norm ==  "9" ~ 9,
+            cc_norm ==  "a great deal 10" ~ 10,
+    TRUE ~ NA
+    ),
+    self_efficacy_num =
+          case_when(
+            self_efficacy == "not at all confident 0" ~ 0,
+            self_efficacy == "1" ~ 1,
+            self_efficacy == "2" ~ 2,
+            self_efficacy == "3" ~ 3,
+            self_efficacy ==  "4" ~ 4,
+            self_efficacy == "5" ~ 5,
+            self_efficacy == "6" ~ 6,
+            self_efficacy == "7" ~ 7,
+            self_efficacy == "8" ~ 8,
+            self_efficacy ==  "9" ~ 9,
+            self_efficacy ==  "completely confident 10" ~ 10,
+    TRUE ~ NA
+          ),
+    Residence =
+      case_when(
+        are_city_type_2012_red == 1 ~ 1,
+        are_city_type_2012_red == 2 ~ 2,
+        are_city_type_2012_red == 3 ~ 3,
+        TRUE ~ NA
+      ),
+    Rural =
+    case_when(
+      are_city_type_2012_red == 3 ~ 1,
+      are_city_type_2012_red == 1 | are_city_type_2012_red == 2 ~ 0,
+      TRUE ~ NA
+    ),
+    City =
+      case_when(
+        are_city_type_2012_red == 1 ~ 1,
+        are_city_type_2012_red == 2 | are_city_type_2012_red == 3 ~ 0,
+        TRUE ~ NA
+      ),
+    Intermediary = 
+      case_when(
+        are_city_type_2012_red == 2 ~ 1,
+        are_city_type_2012_red == 1 | are_city_type_2012_red == 3 ~ 0,
+        TRUE ~ NA
+      ),
+  Language =
+    case_when(
+      w1_lang == 1 ~ 1,
+      TRUE ~ 0
+    ),
+  Ideology = w1_q56,
+  Ideology_cat =
+    case_when(
+      w1_q56 == -99 ~ NA,
+      w1_q56 < 4 ~ 1,
+      w1_q56 > 3 & w1_q56 < 7 ~ 2,
+      w1_q56 > 6 ~ 3,
+      TRUE ~ w1_q56
+    ),
+#  Health = w1_q64,
+#  Emissions_tert = ntile(initial, 3),
+#  Emissions_quint = ntile(initial, 5),
+#  Emissions_quint_fact = factor(Emissions_quint),
+#  Emissions_dec = ntile(initial, 10),
+#  Single_hh = case_when(
+#    hh_size == 1 ~ 1,
+#    hh_size > 1 ~ 0,
+#    TRUE ~ NA),
+#  Flights_quint = ntile(flights, 5),
+  flights_binary  = 
+    case_when(
+      flights > 0 ~ 1,
+      flights == 0 ~ 0,
+      TRUE ~ NA
+    ),
+  car_own = case_when(
+    car == "Yes" ~ 1,
+    car == "No" ~ 0,
+    TRUE ~ NA),
+house_own_binary =
+  case_when(
+    house_own == "Yes" ~ 1,
+    house_own == "No" ~ 0,
+    TRUE ~ NA
+  ),
+  gender = case_when(
+    gender == "male" ~ 1,
+    gender == "female" ~ 0,
+    TRUE ~ NA
+    )
+  ) %>% 
+  select(
+    age,
+    age_cat,
+    edu_tertiary,
+    income_num,
+    gender,
+    Residence,
+    City,
+    Intermediary,
+    Rural,
+    Language,
+    Ideology,
+    Ideology_cat,
+    cc_concern_binary,
+    cc_norm_num,
+    self_efficacy_num,
+    initial,
+    car_own,
+    house_own_binary,
+    flights_binary,
+    pe_target_reached
+  )
+
+
+# final adjustments/recodings
+modelframe <- modelframe %>% 
+  mutate(Residence = factor(Residence, labels = c("City", "Intermediary", "Rural")),
+         age_fact = factor(age_cat, labels = c("18-29", "30-64", "65+")),
+         Ideology_fact = factor(Ideology_cat, labels = c("Left", "Center", "Right")))
+
+
+## fit logistic regression models
+
+model_full <- glm(pe_target_reached ~ age +  # fit full model before building it step by step
+                  edu_tertiary +
+                  income_num +
+                  gender +
+                  City +
+                  Intermediary +
+                  Rural +
+                  Language +
+                  Ideology +
+                  cc_concern_binary +
+                  cc_norm_num +
+                  self_efficacy_num +
+                  initial +
+                  car_own +
+                  house_own_binary +
+                  flights_binary, 
+                  family = binomial, data = modelframe)
+
+
+#alternative with factor variable for residence and age
+model_full <- glm(pe_target_reached ~ age_fact +  # fit full model before building it step by step
+                  edu_tertiary +
+                  income_num +
+                  gender +
+                  Residence +
+                  Language +
+                  Ideology_fact +
+                  cc_concern_binary +
+                  cc_norm_num +
+                  self_efficacy_num +
+                  initial +
+                  car_own +
+                  house_own_binary +
+                  flights_binary, 
+                  family = binomial, data = modelframe)
+
+
+
+# model build
+model_empty <- glm(pe_target_reached ~ 1, # empty model
+                  family = binomial, data = modelframe)
+
+
+model_sociodems <- glm(pe_target_reached ~ age_fact +  # model with socio-dems
+                  edu_tertiary +
+                  income_num +
+                  gender +
+                  Residence +
+                  Language +
+                  initial +
+                  car_own +
+                  house_own_binary +
+                  flights_binary, 
+                  family = binomial, data = modelframe)
+
+
+
+
+model_attitudes <- glm(pe_target_reached ~ age_fact +  # model with socio-dems and attitudes
+                  edu_tertiary +
+                  income_num +
+                  gender +
+                  Residence +
+                  Language +
+                  initial +
+                  car_own +
+                  house_own_binary +
+                  flights_binary +
+                  Ideology_fact +
+                  cc_concern_binary +
+                  cc_norm_num +
+                  self_efficacy_num,
+                  family = binomial, data = modelframe)
+
+
+
+
+
+############################################################################################
+
+
+
+# generate predictions
+modelframe_with_predictions <- predictions(model_attitudes, type = "response") # generate predictions for each observation in dataset as an example
+
+#predict(model_attitudes)
+#predict.glm(model_attitudes, type = "response") %>% summary()
+modelframe_with_predictions <- predictions(model_attitudes, type = "response") # generate predictions for each observation in dataset as an example
+
+
+# however we want to predict at user-specified values of all variables
+# Option 1: We want to make predictions for both outcomes of a binary variable/all outcomes of a categorical variable/the 25th percentile and 75th percentile of a continuous variable. We hold other continuous variables at their mean (they're mostly normally distributed). Binary variables are held at their mode or more natural baseline value. This is called 'predictions at user-specified values' in marginaleffects package.
+
+# Option 2: We want to make predictions for both outcomes of a binary variable/all outcomes of a categorical variable/the 25th percentile and 75th percentile of a continuous variable. We can create counterfactual predictions, which means we duplicate the existing dataset for each value we want to make a prediction for, setting the value of all observations each time to this specific value (both outcomes of binary/all outcomes of categorical/the 25th and 75th percentile of continuous variables). This is called 'counterfactual predictions' in the marginaleffects package.
+
+
+# outcomes to predict
+# "Age: 25th/75th percentile"
+percentiles <- quantile(modelframe$age, probs = c(0.25, 0.75))
+# print(percentiles) # 40, 64
+# "Edu: Binary (Lower Education/Higher Education)"
+# "Income: 25th/75th percentile"
+percentiles <- quantile(modelframe$income_num, probs = c(0.25, 0.75), na.rm = TRUE)
+# print(percentiles) # 4, 6
+
+income_mean <- mean(modelframe$income_num, na.rm = T) # 5
+stand.dev <- sd(modelframe$income_num, na.rm = T) # +/-1SD 3 & 7
+# "Gender: Binary (Female/Male)"
+# "Settlement: Intermediary"
+# "Settlement: Rural"
+# "Language: Binary (German"
+# "Left-Right: 25th/75th percentile"
+percentiles <- quantile(modelframe$Ideology, probs = c(0.25, 0.75), na.rm = TRUE)
+# print(percentiles) # 3, 6
+# "Climate Concern: Binary (Low/High)"
+# "Pro-Climate Personal Norm: 25th/75th percentile"
+percentiles <- quantile(modelframe$cc_norm_num, probs = c(0.25, 0.75), na.rm = TRUE)
+# print(percentiles) # 5, 8
+
+cc_norm_num_mean <- mean(modelframe$cc_norm_num, na.rm = T)
+stand.dev <- sd(modelframe$cc_norm_num, na.rm = T) # +/-1SD 4 & 8
+# "Self-Efficacy Perception: 25th/75th percentile"
+percentiles <- quantile(modelframe$self_efficacy_num, probs = c(0.25, 0.75), na.rm = TRUE)
+# print(percentiles) # 4, 7
+
+self_efficacy_num_mean <- mean(modelframe$self_efficacy_num, na.rm = T)
+stand.dev <- sd(modelframe$self_efficacy_num, na.rm = T) # +/-1SD 4 & 8
+# "Personal Carbon Emissions: 25th/75th percentile"
+percentiles <- quantile(modelframe$initial, probs = c(0.25, 0.75))
+# print(percentiles) # 9.5, 31.9
+
+initial_mean <- mean(modelframe$initial, na.rm = T)
+stand.dev <- sd(modelframe$initial, na.rm = T) # +/-1SD 7 & 38
+# "Car Ownership: Binary (No/Yes)"
+# "House Ownership: Binary (No/Yes)"
+# "Flight Taken: Binary (No/Yes)"
+
+
+#### Counterfactual predictions
+
+
+# "Age: 25th/75th percentile"
+pred_1 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "age_fact",
+    newdata = datagrid(age_fact = c("18-29", "30-64", "65+"), grid_type = "counterfactual")) %>% 
+#  mutate(age = as.character(age)) %>% 
+  pivot_longer(cols = age_fact, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "age_fact" ~ "Age"),
+         name =
+           case_when(
+             name == "18-29" ~ "18-29",
+             name == "30-64" ~ "30-64",
+             name == "65+" ~ "65+"
+           )
+  )
+
+# "Edu: Binary (Lower Education/Higher Education)"
+pred_2 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "edu_tertiary",
+    newdata = datagrid(edu_tertiary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(edu_tertiary = as.character(edu_tertiary)) %>% 
+  pivot_longer(cols = edu_tertiary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "edu_tertiary" ~ "Education"),
+         name =
+           case_when(
+             name == 0 ~ "Secondary/Technical",
+             name == 1 ~ "Tertiary"
+           )
+  )
+
+# "Income: 25th/75th percentile"
+pred_3 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household \nIncome"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           )
+  )
+
+# "Gender: Binary (Female/Male)"
+pred_4 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "gender",
+    newdata = datagrid(gender = 0:1, grid_type = "counterfactual")) %>% 
+  mutate(gender = as.character(gender)) %>% 
+  pivot_longer(cols = gender, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "gender" ~ "Gender"),
+         name =
+           case_when(
+             name == 0 ~ "Female",
+             name == 1 ~ "Male"
+           )
+  )
+
+
+# "Residence"
+pred_5 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "Residence",
+    newdata = datagrid(Residence = c("City", "Intermediary", "Rural"), grid_type = "counterfactual")) %>% 
+#  mutate(City = as.character(City)) %>% 
+  pivot_longer(cols = Residence, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "Residence" ~ "Settlement \nStructure"),
+         name =
+           case_when(
+             name == "City" ~ "City",
+             name == "Intermediary" ~ "Intermediary",
+             name == "Rural" ~ "Rural",
+           )
+  )
+
+
+# "Language: Binary (Latin CH/German CH)"
+pred_7 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "Language",
+    newdata = datagrid(Language = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(Language = as.character(Language)) %>% 
+  pivot_longer(cols = Language, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "Language" ~ "Survey Language"),
+         name =
+           case_when(
+             name == 0 ~ "French/Italian",
+             name == 1 ~ "German"
+           )
+  )
+
+# "Left-Right: 25th/75th percentile"
+pred_8 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "Ideology_fact",
+    newdata = datagrid(Ideology_fact = c("Left", "Center", "Right"), grid_type = "counterfactual")) %>% 
+#  mutate(Ideology = as.character(Ideology)) %>% 
+  pivot_longer(cols = Ideology_fact, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "Ideology_fact" ~ "Political \nOrientation"),
+         name =
+           case_when(
+             name == "Left" ~ "Left",
+             name == "Center" ~ "Center",
+             name == "Right" ~ "Right"
+           )
+  )
+
+# "Climate Concern: Binary (Low/High)"
+pred_9 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate \nConcern"),
+         name =
+           case_when(
+             name == 0 ~ "Not At All/\nNot Very/Somewhat Worried",
+             name == 1 ~ "Very/Extremely Worried"
+           )
+  )
+
+# "Pro-Climate Personal Norm: 25th/75th percentile"
+pred_10 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "cc_norm_num",
+    newdata = datagrid(cc_norm_num = c(4,8), grid_type = "counterfactual")) %>% 
+#  mutate(cc_norm_num = as.character(cc_norm_num)) %>% 
+  pivot_longer(cols = cc_norm_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_norm_num" ~ "Pro-Climate \nPers. Norm"),
+         name =
+           case_when(
+             name == 4 ~ "Low",
+             name == 8 ~ "High"
+           )
+  )
+
+# "Self-Efficacy Perception: 25th/75th percentile"
+pred_11 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "self_efficacy_num",
+    newdata = datagrid(self_efficacy_num = c(4,8), grid_type = "counterfactual")) %>% 
+#  mutate(self_efficacy_num = as.character(self_efficacy_num)) %>% 
+  pivot_longer(cols = self_efficacy_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "self_efficacy_num" ~ "Self-Efficacy \nPerception"),
+         name =
+           case_when(
+             name == 4 ~ "Low",
+             name == 8 ~ "High"
+           )
+  )
+
+# "Personal Carbon Emissions: 25th/75th percentile"
+pred_12 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "initial",
+    newdata = datagrid(initial = c(7,38), grid_type = "counterfactual")) %>% 
+#  mutate(initial = as.character(initial)) %>% 
+  pivot_longer(cols = initial, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "initial" ~ "Carbon \nFootprint"),
+         name =
+           case_when(
+             name == 7 ~ "Low",
+             name == 38 ~ "High"
+           )
+  )
+
+# "Car Ownership: Binary (No/Yes)"
+pred_13 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "car_own",
+    newdata = datagrid(car_own = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(car_own = as.character(car_own)) %>% 
+  pivot_longer(cols = car_own, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "car_own" ~ "Car \nOwnership"),
+         name =
+           case_when(
+             name == 0 ~ "No",
+             name == 1 ~ "Yes"
+           )
+  )
+
+# "House Ownership: Binary (No/Yes)"
+pred_14 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "house_own_binary",
+    newdata = datagrid(house_own_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(house_own_binary = as.character(house_own_binary)) %>% 
+  pivot_longer(cols = house_own_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "house_own_binary" ~ "House \nOwnership"),
+         name =
+           case_when(
+             name == 0 ~ "No",
+             name == 1 ~ "Yes"
+           )
+  )
+
+# "Flight Taken: Binary (No/Yes)"
+pred_15 <- predictions(
+    model_attitudes,
+    type = "response",
+    by = "flights_binary",
+    newdata = datagrid(flights_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(flights_binary = as.character(flights_binary)) %>% 
+  pivot_longer(cols = flights_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "flights_binary" ~ "Min. 1 \nFlight"),
+         name =
+           case_when(
+             name == 0 ~ "No",
+             name == 1 ~ "Yes"
+           )
+  )
+
+
+
+ ################ PLOT COUNTERFACTUAL PREDICTIONS: SOCIO-DEMOGRAPHICS, BEHAVIORS AND ATTITUDES
+
+ 
+# combine predictions & adjust some variables & labels
+prediction_plot_counterfactual <- pred_1 %>% 
+  bind_rows(pred_2,
+            pred_3,
+            pred_4,
+            pred_5,
+#            pred_6,
+            pred_7,
+            pred_8,
+            pred_9,
+            pred_10,
+            pred_11,
+            pred_12,
+            pred_13,
+            pred_14,
+            pred_15
+            ) %>% 
+  mutate(var_type = 
+           case_when(
+             variable %in% c("Age",
+                             "Education",
+                             "Household \nIncome",
+                             "Gender",
+                             "Survey Language",
+                             "Settlement \nStructure")  ~ "Sociodemographics",
+             variable %in% c("Carbon \nFootprint",
+                             "Car \nOwnership",
+                             "House \nOwnership",
+                             "Min. 1 \nFlight") ~ "Behaviors",
+             variable %in% c("Political \nOrientation",
+                             "Climate \nConcern",
+                             "Pro-Climate \nPers. Norm",
+                             "Self-Efficacy \nPerception") ~ "Attitudes",
+             TRUE ~ NA_character_
+             ),
+         name = as.factor(name),
+         variable = as.factor(variable)
+         )
+
+# define factor levels
+prediction_plot_counterfactual <- prediction_plot_counterfactual %>% 
+  mutate(variable = 
+           fct_relevel(
+             variable, 
+             "Age",
+             "Education",
+             "Household \nIncome",
+             "Gender",
+             "Survey Language",
+             "Settlement \nStructure",
+              "Carbon \nFootprint",
+             "Car \nOwnership",
+             "House \nOwnership",
+             "Min. 1 \nFlight",
+             "Political \nOrientation",
+             "Climate \nConcern",
+             "Pro-Climate \nPers. Norm",
+             "Self-Efficacy \nPerception",
+             ),
+         name = 
+           fct_relevel(
+             name,
+             "65+",
+             "30-64",
+             "18-29",
+             "Tertiary",
+             "Secondary/Technical",
+             "High",
+             "Low",
+             "Male",
+             "Female",
+             "City",
+             "Intermediary",
+             "Rural",
+             "German",
+             "French/Italian",
+             "Right",
+             "Center",
+             "Left",
+             "Very/Extremely Worried",
+             "Not At All/\nNot Very/Somewhat Worried",
+             "Yes",
+             "No",
+             )
+         )
+
+
+
+
+
+
+# Plots option 2 (differently arranged)
+
+# arrange plot A
+p_a <- prediction_plot_counterfactual %>% 
+  filter(var_type == "Sociodemographics" &
+           variable %in% c(
+             "Age",
+             "Education",
+             "Household \nIncome"
+           )) %>% 
+  ggplot() +
+  geom_point(aes(x = name, y = estimate*100)) + 
+  geom_errorbar(aes(x = name, y = estimate*100, ymin = conf.low*100, ymax = conf.high*100), width = 0.3,    # Removes the whiskers
+              size = 0.4) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(40, 80), name = "Probability of reaching reduction target") +
+  scale_x_discrete(name = "") +
+  facet_wrap(~variable, ncol = 1L, 
+             scales = "free_y", strip.position = "left", labeller = label_wrap_gen(width=10)) +
+  coord_flip() +
+  theme_bw(base_size = 12)
+
+# arrange plot B
+p_b <- prediction_plot_counterfactual %>% 
+  filter(var_type == "Sociodemographics" &
+           variable %in% c(
+             "Gender",
+             "Survey Language",
+             "Settlement \nStructure"
+           )) %>% 
+  ggplot() +
+  geom_point(aes(x = name, y = estimate*100)) + 
+  geom_errorbar(aes(x = name, y = estimate*100, ymin = conf.low*100, ymax = conf.high*100), width = 0.3,    # Removes the whiskers
+              size = 0.4) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(40, 80), name = "Probability of reaching reduction target") +
+  scale_x_discrete(name = "") +
+  facet_wrap(~variable, ncol = 1L, 
+             scales = "free_y", strip.position = "left", labeller = label_wrap_gen(width=10)) +
+  coord_flip() +
+  theme_bw(base_size = 12)
+
+# arrange plot C
+p_c <- prediction_plot_counterfactual %>% 
+  filter(var_type == "Behaviors" &
+           variable %in% c(
+             "Carbon \nFootprint",
+             "Car \nOwnership"
+           )) %>% 
+  ggplot() +
+  geom_point(aes(x = name, y = estimate*100)) + 
+  geom_errorbar(aes(x = name, y = estimate*100, ymin = conf.low*100, ymax = conf.high*100), width = 0.3,    # Removes the whiskers
+              size = 0.4) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(40, 80), name = "Probability of reaching reduction target") +
+  scale_x_discrete(name = "") +
+  facet_wrap(~variable, ncol = 1L, 
+             scales = "free_y", strip.position = "left", labeller = label_wrap_gen(width=10)) +
+  coord_flip() +
+  theme_bw(base_size = 12)
+
+# arrange plot D
+p_d <- prediction_plot_counterfactual %>% 
+  filter(var_type == "Behaviors" &
+           variable %in% c(
+             "House \nOwnership",
+             "Min. 1 \nFlight"
+           )) %>% 
+  ggplot() +
+  geom_point(aes(x = name, y = estimate*100)) + 
+  geom_errorbar(aes(x = name, y = estimate*100, ymin = conf.low*100, ymax = conf.high*100), width = 0.3,    # Removes the whiskers
+              size = 0.4) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(40, 80), name = "Probability of reaching reduction target") +
+  scale_x_discrete(name = "") +
+  facet_wrap(~variable, ncol = 1L, 
+             scales = "free_y", strip.position = "left", labeller = label_wrap_gen(width=10)) +
+  coord_flip() +
+  theme_bw(base_size = 12)
+
+
+# arrange plot E  
+p_e <- prediction_plot_counterfactual %>% 
+  filter(var_type == "Attitudes" &
+           variable %in% c(
+             "Political \nOrientation",
+             "Climate \nConcern"
+           )) %>% 
+  ggplot() +
+  geom_point(aes(x = name, y = estimate*100)) + 
+  geom_errorbar(aes(x = name, y = estimate*100, ymin = conf.low*100, ymax = conf.high*100), width = 0.3,    # Removes the whiskers
+              size = 0.4) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(40, 80), name = "Probability of reaching reduction target") +
+  scale_x_discrete(name = "") +
+  facet_wrap(~variable, ncol = 1L, 
+             scales = "free_y", strip.position = "left") +
+  coord_flip() +
+  theme_bw(base_size = 12)  
+
+
+
+# arrange plot F    
+p_f <- prediction_plot_counterfactual %>% 
+  filter(var_type == "Attitudes" &
+           variable %in% c(
+             "Pro-Climate \nPers. Norm",
+             "Self-Efficacy \nPerception"
+           )) %>% 
+  ggplot() +
+  geom_point(aes(x = name, y = estimate*100)) + 
+  geom_errorbar(aes(x = name, y = estimate*100, ymin = conf.low*100, ymax = conf.high*100), width = 0.3,    # Removes the whiskers
+              size = 0.4) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(40, 80), name = "Probability of reaching reduction target") +
+  scale_x_discrete(name = "") +
+  facet_wrap(~variable, ncol = 1L, 
+             scales = "free_y", strip.position = "left") +
+  coord_flip() +
+  theme_bw(base_size = 12)    
+  
+ ggarrange(
+   p_a, p_b, p_c, p_d, p_e, p_f,
+   ncol = 2,
+   nrow = 3,
+   align = "v",
+   labels = c("Sociodem.", "", "Behaviors", "", "Attitudes", ""),
+   label.x = c(-0.05, 0, -0.05, 0, -0.03, 0),
+   label.y = c(1, 0, 1, 0, 1, 0), 
+   heights = c(1,0.66,0.66)
+ ) 
+
+
+```
+
+
+# Figure 4. Carbon emission reduction preferences
+
+```{r Figure 4: Carbon emission reduction preferences, fig.height=5.5, fig.width=8.27, dpi=600, echo=FALSE}
+
+## calculate share of emission reduction by strategy
+
+# replace car
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_repl_car_tons_respondent = (PE_replace_car__reduction/1000)*-1,
+    actual_repl_car_share_respondent =
+      case_when(
+        PE_replace_car__visible == T ~ (actual_repl_car_tons_respondent / initial),
+        TRUE ~ NA
+        ),
+     actual_repl_car_share_population =
+      case_when(
+        PE_replace_car__visible == T ~ (actual_repl_car_tons_respondent / initial),
+        TRUE ~ 0
+        )
+      ) %>% select(ID, actual_repl_car_share_respondent, actual_repl_car_share_population, income_fact_short, target_share)
+    
+
+## sell car
+df_emission_reductions_strategy <- df %>%
+  mutate(
+    actual_sell_car_tons_respondent = (PE_sell_car__reduction/1000)*-1,
+    actual_sell_car_share_respondent =
+      case_when(
+        PE_sell_car__visible == T ~ (actual_sell_car_tons_respondent / initial),
+        TRUE ~ NA
+        ),
+     actual_sell_car_share_population =
+      case_when(
+        PE_sell_car__visible == T ~ (actual_sell_car_tons_respondent / initial),
+        TRUE ~ 0
+        )
+    ) %>% select(ID, actual_sell_car_share_respondent,actual_sell_car_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+## reduce mileage car
+### NOTE: ACTUAL SO FAR WITHOUT COMPENSATION, BUT IN THEORY COULD BE REPLACED ASSUMING FULL COMPENSATION WITH PT
+
+df_emission_reductions_strategy <- df %>%
+  mutate(
+    actual_reduce_car_tons_respondent = (PE_reduce_car__reduction/1000)*-1,
+    actual_reduce_car_share_respondent =
+      case_when(
+        PE_reduce_car__visible == T ~ (actual_reduce_car_tons_respondent / initial),
+        TRUE ~ NA
+        ),
+    actual_reduce_car_share_population =
+      case_when(
+        PE_reduce_car__visible == T ~ (actual_reduce_car_tons_respondent / initial),
+        TRUE ~ 0
+      )
+    ) %>% select(ID, actual_reduce_car_share_respondent, actual_reduce_car_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+  
+
+## reduce short flights
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_short_flights_tons_respondent = (PE_reduce_short_flights__reduction/1000)*-1,
+    actual_reduce_short_flights_share_respondent =
+      case_when(
+        PE_reduce_short_flights__visible == T ~ (actual_reduce_short_flights_tons_respondent / initial),
+        TRUE ~ NA
+        ),
+    actual_reduce_short_flights_share_population = 
+      case_when(
+        PE_reduce_short_flights__visible == T ~ (actual_reduce_short_flights_tons_respondent / initial),
+        TRUE ~ 0
+      ),
+  ) %>% 
+select(ID, actual_reduce_short_flights_share_respondent, actual_reduce_short_flights_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+## reduce medium flights
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_medium_flights_tons_respondent = (PE_reduce_medium_flights__reduction/1000)*-1,
+    actual_reduce_medium_flights_share_respondent =
+      case_when(
+        PE_reduce_medium_flights__visible == T ~ (actual_reduce_medium_flights_tons_respondent / initial),
+        TRUE ~ NA
+        ),
+    actual_reduce_medium_flights_share_population =
+      case_when(
+        PE_reduce_medium_flights__visible == T ~ (actual_reduce_medium_flights_tons_respondent / initial),
+        TRUE ~ 0
+        )
+  ) %>% select(ID, actual_reduce_medium_flights_share_respondent, actual_reduce_medium_flights_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+
+## reduce long flights
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_long_flights_tons_respondent = (PE_reduce_long_flights__reduction/1000)*-1,
+    actual_reduce_long_flights_share_respondent =
+      case_when(
+        PE_reduce_long_flights__visible == T ~ (actual_reduce_long_flights_tons_respondent / initial),
+        TRUE ~ NA
+        ),
+    actual_reduce_long_flights_share_population =
+      case_when(
+        PE_reduce_long_flights__visible == T ~ (actual_reduce_long_flights_tons_respondent / initial),
+        TRUE ~ 0
+        )
+  ) %>% select(ID, actual_reduce_long_flights_share_respondent, actual_reduce_long_flights_share_population) %>%  
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+
+
+
+## change diet
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_diet_tons_respondent = (PE_diet__reduction/1000)*-1,
+    actual_reduce_diet_share_respondent = 
+      case_when(
+        diet != "vegan" ~ (actual_reduce_diet_tons_respondent / initial),
+        TRUE ~ NA
+      ),
+    actual_reduce_diet_share_population = 
+      case_when(
+        diet != "vegan" ~ (actual_reduce_diet_tons_respondent / initial),
+        TRUE ~ 0
+      )
+  ) %>% select(ID, actual_reduce_diet_share_respondent, actual_reduce_diet_share_population) %>%   
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+
+## insulate roof 
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_roof_tons_respondent = (PE_insulate_roof__reduction/1000)*-1,
+    actual_reduce_roof_share_respondent = 
+      case_when(
+        PE_insulate_roof__visible == T ~ (actual_reduce_roof_tons_respondent/initial),
+        TRUE ~ NA
+      ),
+    actual_reduce_roof_share_population = 
+      case_when(
+        PE_insulate_roof__visible == T ~ (actual_reduce_roof_tons_respondent/initial),
+        TRUE ~ 0
+      )
+  ) %>% select(ID, actual_reduce_roof_share_respondent, actual_reduce_roof_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+
+## insulate facade
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_facade_tons_respondent = (PE_insulate_facade__reduction/1000)*-1,
+    actual_reduce_facade_share_respondent = 
+      case_when(
+        PE_insulate_facade__visible == T ~ (actual_reduce_facade_tons_respondent/initial),
+        TRUE ~ NA
+      ),
+    actual_reduce_facade_share_population = 
+      case_when(
+        PE_insulate_facade__visible == T ~ (actual_reduce_facade_tons_respondent/initial),
+        TRUE ~ 0
+      ),
+  ) %>% select(ID, actual_reduce_facade_share_respondent, actual_reduce_facade_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+# select(actual_reduce_facade_tons, actual_reduce_facade_share, initial, PE_insulate_facade__visible)
+
+## replace windows
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_windows_tons_respondent = (PE_replace_windows__reduction/1000)*-1,
+    actual_reduce_windows_share_respondent = 
+      case_when(
+        PE_replace_windows__visible == T ~ (actual_reduce_windows_tons_respondent/initial),
+        TRUE ~ NA
+      ),
+    actual_reduce_windows_share_population = 
+      case_when(
+        PE_replace_windows__visible == T ~ (actual_reduce_windows_tons_respondent/initial),
+        TRUE ~ 0
+      )
+  ) %>% select(ID, actual_reduce_windows_share_respondent, actual_reduce_windows_share_population) %>%  
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+## install pv
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_pv_tons_respondent = (PE_solar_panels__reduction/1000)*-1,
+    actual_reduce_pv_share_respondent = 
+      case_when(
+        PE_solar_panels__visible == T ~ (actual_reduce_pv_tons_respondent/initial),
+        TRUE ~ NA
+      ),
+    actual_reduce_pv_share_population = 
+      case_when(
+        PE_solar_panels__visible == T ~ (actual_reduce_pv_tons_respondent/initial),
+        TRUE ~ 0
+      )
+  ) %>% select(ID, actual_reduce_pv_share_respondent, actual_reduce_pv_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+
+## install ventilation
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_ventilation_tons_respondent = (PE_ventilation__reduction/1000)*-1,
+    actual_reduce_ventilation_share_respondent = 
+      case_when(
+        PE_ventilation__visible == T ~ (actual_reduce_ventilation_tons_respondent/initial),
+        TRUE ~ NA
+      ),
+    actual_reduce_ventilation_share_population = 
+      case_when(
+        PE_ventilation__visible == T ~ (actual_reduce_ventilation_tons_respondent/initial),
+        TRUE ~ 0
+      )
+  ) %>% select(ID, actual_reduce_ventilation_share_respondent, actual_reduce_ventilation_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+
+## install heatpump
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_heatpump_tons_respondent = (PE_heat_pump__reduction/1000)*-1,
+    actual_reduce_heatpump_share_respondent = 
+      case_when(
+        PE_heat_pump__visible == T ~ (actual_reduce_heatpump_tons_respondent/initial),
+        TRUE ~ NA
+      ),
+    actual_reduce_heatpump_share_population = 
+      case_when(
+        PE_heat_pump__visible == T ~ (actual_reduce_heatpump_tons_respondent/initial),
+        TRUE ~ 0
+      )
+  ) %>% select(ID, actual_reduce_heatpump_share_respondent, actual_reduce_heatpump_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+
+
+## reduce room temperature
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_temperature_tons = (PE_reduce_temperature__reduction/1000)*-1,
+    actual_reduce_temperature_share_respondent = actual_reduce_temperature_tons/initial,
+    actual_reduce_temperature_share_population = actual_reduce_temperature_share_respondent,
+  ) %>% select(ID, actual_reduce_temperature_share_respondent, actual_reduce_temperature_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+
+
+## buy co2 certificates
+df_emission_reductions_strategy <- df %>% 
+  mutate(
+    actual_reduce_certificates_tons = diff_emissions_offset/1000,
+    actual_reduce_certificates_share_respondent = actual_reduce_certificates_tons/initial,
+    actual_reduce_certificates_share_population = actual_reduce_certificates_share_respondent
+         ) %>% 
+  select(ID, actual_reduce_certificates_share_respondent, actual_reduce_certificates_share_population) %>% 
+  left_join(df_emission_reductions_strategy, by = "ID")
+
+
+
+
+
+## prep calculation of choice shares
+# choice probabilities
+
+# prepare choice table
+pe_choice <- df %>% 
+  mutate(
+    `Replace car` = PE_replace_car__selected,
+    `Sell car` = PE_sell_car__selected,
+    `Reduce car mileage` = PE_reduce_car__selected,
+    `Reduce short flights` = PE_reduce_short_flights__selected,
+    `Reduce medium flights` = PE_reduce_medium_flights__selected,
+    `Reduce long flights` = PE_reduce_long_flights__selected,
+    `Change diet` = PE_diet__selected,
+    `Insulate roof` = PE_insulate_roof__selected,
+    `Insulate facade` = PE_insulate_facade__selected,
+    `Replace windows` = PE_replace_windows__selected,
+    `Install solar panels` = PE_solar_panels__selected,
+    `Install ventilation` = PE_ventilation__selected,
+    `Install heat pump` = PE_heat_pump__selected,
+    `Reduce room temperature` = PE_reduce_temperature__selected,
+    `CO2 certificates` = PE_certificate__selected,
+  ) %>% 
+  select(
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`,
+    ID
+  ) 
+
+
+pe_choice <- pe_choice %>% mutate_all(., as.numeric)
+  
+pe_choice_shares <- pe_choice %>% select(-c(ID)) %>% summarise_all(mean) %>% 
+  pivot_longer(cols = everything(), names_to = "mitigation_strategy", values_to = "respondent_share")
+
+
+pe_choice_shares <- pe_choice_shares %>% mutate(mitigation_strategy = factor(mitigation_strategy, levels = c(
+            "Install heat pump",
+           "Install ventilation",
+           "Install solar panels",
+           "Replace windows",
+           "Insulate facade",
+           "Insulate roof",
+           "Replace car",
+           "Reduce room temperature",
+           "Change diet",
+           "Reduce long flights",
+           "Reduce medium flights",
+           "Reduce short flights",
+           "Reduce car mileage",
+          "Sell car",
+          "CO2 certificates")),
+          Status = "Chosen")
+
+
+# prepare availability table
+pe_availability <- df %>% 
+  mutate(
+    `Replace car` = PE_replace_car__visible,
+    `Sell car` = PE_sell_car__visible,
+    `Reduce car mileage` = PE_reduce_car__visible,
+    `Reduce short flights` = PE_reduce_short_flights__visible,
+    `Reduce medium flights` = PE_reduce_medium_flights__visible,
+    `Reduce long flights` = PE_reduce_long_flights__visible,
+    `Change diet` = TRUE,
+    `Insulate roof` = PE_insulate_roof__visible,
+    `Insulate facade` = PE_insulate_facade__visible,
+    `Replace windows` = PE_replace_windows__visible,
+    `Install solar panels` = PE_solar_panels__visible,
+    `Install ventilation` = PE_ventilation__visible,
+    `Install heat pump` = PE_heat_pump__visible,
+    `Reduce room temperature` = TRUE,
+    `CO2 certificates` = TRUE,
+  ) %>% 
+  select(
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`
+  ) 
+
+
+pe_availability <- pe_availability %>% mutate_all(., as.numeric)
+  
+pe_availability <- pe_availability %>% summarise_all(mean) %>% 
+  pivot_longer(cols = everything(), names_to = "mitigation_strategy", values_to = "respondent_share")
+
+
+pe_availability <- pe_availability %>% mutate(mitigation_strategy = factor(mitigation_strategy, levels = c(
+                                                  "Install heat pump",
+           "Install ventilation",
+           "Install solar panels",
+           "Replace windows",
+           "Insulate facade",
+           "Insulate roof",
+           "Replace car",
+           "Reduce room temperature",
+           "Change diet",
+           "Reduce long flights",
+           "Reduce medium flights",
+           "Reduce short flights",
+           "Reduce car mileage",
+          "Sell car",
+          "CO2 certificates")),
+                                              Status = "Available")
+
+
+
+# bind tables
+pe_choice_availability <- pe_availability %>% 
+  bind_rows(pe_choice_shares)
+
+#reshape for plot
+pe_choice_availability <- pe_choice_availability %>% 
+  pivot_wider(., names_from = Status, values_from = respondent_share) %>% 
+  mutate(choice_if_available = Chosen/Available)
+
+
+
+
+## add mean emission reduction per strategy (respondent level)
+df_emission_reductions_strategy_respondent <- df_emission_reductions_strategy %>% 
+select(ID, actual_repl_car_share_respondent,
+                   actual_sell_car_share_respondent,
+                   actual_reduce_car_share_respondent,
+                   actual_reduce_short_flights_share_respondent,
+                   actual_reduce_medium_flights_share_respondent,
+                   actual_reduce_long_flights_share_respondent,
+                   actual_reduce_diet_share_respondent,
+                   actual_reduce_roof_share_respondent,
+                   actual_reduce_facade_share_respondent,
+                   actual_reduce_windows_share_respondent,
+                   actual_reduce_pv_share_respondent,
+                   actual_reduce_ventilation_share_respondent,
+                   actual_reduce_heatpump_share_respondent,
+                   actual_reduce_temperature_share_respondent,
+                   actual_reduce_certificates_share_respondent)
+
+
+
+
+
+
+df_emission_reductions_strategy_respondent <- df_emission_reductions_strategy_respondent %>% 
+  pivot_longer(cols = actual_repl_car_share_respondent:`actual_reduce_certificates_share_respondent`, names_to = "mitigation_strategy", values_to = "emission_reductions") %>% 
+  mutate(mitigation_strategy = 
+           case_when(
+             mitigation_strategy == "actual_repl_car_share_respondent" ~ "Replace car",
+                     mitigation_strategy == "actual_sell_car_share_respondent" ~ "Sell car",
+                     mitigation_strategy == "actual_reduce_car_share_respondent" ~ "Reduce car mileage",
+                     mitigation_strategy == "actual_reduce_short_flights_share_respondent" ~ "Reduce short flights",
+                     mitigation_strategy == "actual_reduce_medium_flights_share_respondent" ~ "Reduce medium flights",
+                     mitigation_strategy == "actual_reduce_long_flights_share_respondent" ~ "Reduce long flights",
+                     mitigation_strategy == "actual_reduce_diet_share_respondent" ~ "Change diet",
+                     mitigation_strategy == "actual_reduce_roof_share_respondent" ~ "Insulate roof",
+                     mitigation_strategy == "actual_reduce_facade_share_respondent" ~ "Insulate facade",
+                     mitigation_strategy == "actual_reduce_windows_share_respondent" ~ "Replace windows",
+                     mitigation_strategy == "actual_reduce_pv_share_respondent" ~ "Install solar panels",
+                     mitigation_strategy == "actual_reduce_ventilation_share_respondent" ~ "Install ventilation",
+                     mitigation_strategy == "actual_reduce_heatpump_share_respondent" ~ "Install heat pump",
+                     mitigation_strategy == "actual_reduce_temperature_share_respondent" ~ "Reduce room temperature",
+                     mitigation_strategy == "actual_reduce_certificates_share_respondent" ~ "CO2 certificates")
+  ) %>% 
+  mutate(mitigation_strategy_type = case_when(
+        mitigation_strategy %in% c(
+          "Install heat pump",
+          "Install ventilation",
+          "Install solar panels",
+          "Replace windows",
+          "Insulate facade",
+          "Insulate roof",
+          "Replace car"
+        ) ~ "Technology",
+        mitigation_strategy %in% c(
+          "Reduce room temperature",
+          "Change diet",
+          "Reduce long flights",
+          "Reduce medium flights",
+          "Reduce short flights",
+          "Reduce car mileage",
+          "Sell car"
+        ) ~ "Behavior",
+        mitigation_strategy == "CO2 certificates" ~ "CO2 Certificates"
+        ))
+
+
+df_emission_reductions_strategy_respondent <- df_emission_reductions_strategy_respondent %>% 
+  mutate(mitigation_strategy = factor(mitigation_strategy, levels = c(
+                                                  "Install heat pump",
+           "Install ventilation",
+           "Install solar panels",
+           "Replace windows",
+           "Insulate facade",
+           "Insulate roof",
+           "Replace car",
+           "Reduce room temperature",
+           "Change diet",
+           "Reduce long flights",
+           "Reduce medium flights",
+           "Reduce short flights",
+           "Reduce car mileage",
+          "Sell car",
+          "CO2 certificates")
+          )
+  )
+
+
+
+df_mean_emission_reductions_strategy_respondent <- df_emission_reductions_strategy_respondent %>% 
+  filter(emission_reductions != 0) %>% 
+  group_by(mitigation_strategy) %>% 
+  summarise(mean_emission_reduction = mean(emission_reductions, na.rm = T)) %>% 
+  left_join(distinct(df_emission_reductions_strategy_respondent, mitigation_strategy, mitigation_strategy_type), 
+            by = "mitigation_strategy")
+
+
+
+## add cost variable
+
+# prepare one time cost variable
+pe_investment <- df %>% 
+  mutate(
+    `Replace car` = PE_replace_car__investment,
+    `Sell car` = 0,
+    `Reduce car mileage` = 0,
+    `Reduce short flights` = 0,
+    `Reduce medium flights` = 0,
+    `Reduce long flights` = 0,
+    `Change diet` = 0,
+    `Insulate roof` = PE_insulate_roof__investment,
+    `Insulate facade` = PE_insulate_facade__investment,
+    `Replace windows` = PE_replace_windows__investment,
+    `Install solar panels` = PE_solar_panels__investment,
+    `Install ventilation` = PE_ventilation__investment,
+    `Install heat pump` = PE_heat_pump__investment,
+    `Reduce room temperature` = 0,
+    `CO2 certificates` = 0,
+  ) %>% 
+  select(
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`,
+    ID
+  ) 
+
+pe_investment <- pe_investment %>% 
+  pivot_longer(cols = `Replace car`:`CO2 certificates`, names_to = "mitigation_strategy", values_to = "one_time_costs")
+
+pe_investment <- pe_investment %>% mutate(mitigation_strategy = factor(mitigation_strategy, levels = c(
+                                                  "Install heat pump",
+           "Install ventilation",
+           "Install solar panels",
+           "Replace windows",
+           "Insulate facade",
+           "Insulate roof",
+           "Replace car",
+           "Reduce room temperature",
+           "Change diet",
+           "Reduce long flights",
+           "Reduce medium flights",
+           "Reduce short flights",
+           "Reduce car mileage",
+          "Sell car",
+          "CO2 certificates")
+          )
+  )
+
+
+# add info on whether option was chosen
+
+# combine reductions and choice dataframe
+pe_choice_reshaped <- pe_choice %>% 
+  pivot_longer(cols = `Replace car`:`CO2 certificates`, names_to = "mitigation_strategy", values_to = "choice")
+
+pe_investment_choice <- pe_investment %>% 
+  left_join(pe_choice_reshaped, by = c("ID", "mitigation_strategy")) 
+
+# set NA if not chosen
+pe_investment_choice <- pe_investment_choice %>%
+  mutate(one_time_cost_if_chosen = if_else(choice == 1, one_time_costs, NA))
+
+
+# summarise costs
+pe_investment_choice <- pe_investment_choice %>%
+  group_by(mitigation_strategy) %>% 
+  summarise(mean_one_time_cost_if_chosen = mean(one_time_cost_if_chosen, na.rm = T))
+
+
+
+####### plot mapping ######
+
+
+# combine dataframes
+map_plot_respondent <- df_mean_emission_reductions_strategy_respondent %>% 
+  left_join(pe_choice_availability, by = "mitigation_strategy") %>% 
+  left_join(pe_investment_choice, by = "mitigation_strategy")
+
+
+# add factor levels for plotting
+map_plot_respondent$mitigation_strategy_type <- factor(map_plot_respondent$mitigation_strategy_type, levels = c("Technology", "Behavior", "CO2 Certificates"))
+
+
+library(ggrepel)
+
+
+mean_choice <- mean(map_plot_respondent$choice_if_available)*100
+mean_emission_reduction <- mean(map_plot_respondent$mean_emission_reduction)*100
+
+#### additionally color the segment for popular and effective mitigation strategies
+
+ggplot() +
+  geom_hline(data = map_plot_respondent, aes(yintercept=mean(mean_emission_reduction)*100), color="grey50", size=1, linewidth = 0.5, linetype = "dashed") + 
+  geom_vline(data = map_plot_respondent, aes(xintercept=mean(choice_if_available)*100), color="grey50", size=1, linewidth = 0.5, linetype = "dashed") +
+  annotate('rect', xmin=mean_choice, xmax=Inf, ymin=mean_emission_reduction, ymax=Inf, alpha=.2, fill='red') +
+  annotate("text", x = 55, y = 70, label = "Most frequently chosen and \n effective mitigation options", color = "black", size = 5) +  # Add text annotation
+  geom_point(data = map_plot_respondent, aes(y = mean_emission_reduction*100, x = choice_if_available*100, size = abs(mean_one_time_cost_if_chosen), fill = mitigation_strategy_type), shape = 21, color = "black") +
+#  scale_color_manual("Mitigation strategy", values = c("#d7191c", "#ffffbf", "#2c7bb6"),  labels = c("Behavior", "CO2 Certificates", "Technology")) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(0, 75)) +
+  scale_x_continuous(labels = label_percent(scale = 1), limits = c(0, 75)) +
+  geom_label_repel(data = map_plot_respondent, aes(y = mean_emission_reduction*100, x = choice_if_available*100, label = mitigation_strategy, fill = mitigation_strategy_type), box.padding = 0.5,    # Padding around label
+                   point.padding = 0.3, color = "black") +   # Padding around points ) +
+  scale_fill_manual("Mitigation type", values = c("#77B2DE", "#EE7072", "#FFFFD8"), labels = c("Technology", "Behavior", "CO2 Certificates")) +
+  # Customize point sizes
+  scale_size_continuous(name = "One-Time Costs", range = c(2, 10)) +  # Smallest size for negative value
+  ggtitle("") +
+  ylab("Emission reduction (% of initial CO2)") +
+  xlab("Choice share (among those with option available)") +
+  theme_bw()
+
+
+
+
+
+
+```
+
+
+
+# Figure 5. Predicted choice share of mitigation options by individual characteristics 
+
+``` {r Figure 5. Predicted choice share of mitigation options by individual characteristics, fig.height=5.91*1.4, fig.width=8.27*1.4, dpi=600, echo=FALSE}
+
+
+## prep data
+pe_choice <- df %>% 
+ mutate(
+    income_top_middle_bottom =
+      case_when(
+        income_fact_short == "< 2k CHF" | income_fact_short == "2k-4k CHF" | income_fact_short == "4k-6k CHF" ~ 1,
+        income_fact_short == "6k-8k CHF" | income_fact_short == "8k-10k CHF" | income_fact_short == "10k-12k CHF" ~ 2,
+        income_fact_short == "12k-14k CHF" | income_fact_short == "14-16k CHF" | income_fact_short == "16k-18k CHF" | income_fact_short == "> 18k CHF" ~ 3,
+        TRUE ~ NA
+      )
+  ) %>% 
+ mutate(
+    cc_concern_binary =
+          case_when(
+            cc_concern == "not at all worried" ~ 0,
+            cc_concern == "not very worried" ~ 0,
+            cc_concern == "somewhat worried" ~ 0,
+            cc_concern == "very worried" ~ 1,
+            cc_concern ==  "extremely worried" ~ 1,
+    TRUE ~ NA
+    ),
+    cc_concern_num = 
+      case_when(
+            cc_concern == "not at all worried" ~ 1,
+            cc_concern == "not very worried" ~ 2,
+            cc_concern == "somewhat worried" ~ 3,
+            cc_concern == "very worried" ~ 4,
+            cc_concern ==  "extremely worried" ~ 5,
+    TRUE ~ NA
+  )
+  ) %>% 
+  mutate(
+    `Replace car` = PE_replace_car__selected,
+    `Sell car` = PE_sell_car__selected,
+    `Reduce car mileage` = PE_reduce_car__selected,
+    `Reduce short flights` = PE_reduce_short_flights__selected,
+    `Reduce medium flights` = PE_reduce_medium_flights__selected,
+    `Reduce long flights` = PE_reduce_long_flights__selected,
+    `Change diet` = PE_diet__selected,
+    `Insulate roof` = PE_insulate_roof__selected,
+    `Insulate facade` = PE_insulate_facade__selected,
+    `Replace windows` = PE_replace_windows__selected,
+    `Install solar panels` = PE_solar_panels__selected,
+    `Install ventilation` = PE_ventilation__selected,
+    `Install heat pump` = PE_heat_pump__selected,
+    `Reduce room temperature` = PE_reduce_temperature__selected,
+    `CO2 certificates` = PE_certificate__selected,
+  ) %>% 
+  select(
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`,
+    income_top_middle_bottom,
+    cc_concern_binary,
+    cc_concern_num,
+    ID
+  ) 
+
+
+pe_choice <- pe_choice %>% mutate_all(., as.numeric)
+  
+
+# prepare availability table
+pe_availability <- df %>% 
+  mutate(
+    `Replace car AV` = PE_replace_car__visible,
+    `Sell car AV` = PE_sell_car__visible,
+    `Reduce car mileage AV` = PE_reduce_car__visible,
+    `Reduce short flights AV` = PE_reduce_short_flights__visible,
+    `Reduce medium flights AV` = PE_reduce_medium_flights__visible,
+    `Reduce long flights AV` = PE_reduce_long_flights__visible,
+    `Change diet AV` = TRUE,
+    `Insulate roof AV` = PE_insulate_roof__visible,
+    `Insulate facade AV` = PE_insulate_facade__visible,
+    `Replace windows AV` = PE_replace_windows__visible,
+    `Install solar panels AV` = PE_solar_panels__visible,
+    `Install ventilation AV` = PE_ventilation__visible,
+    `Install heat pump AV` = PE_heat_pump__visible,
+    `Reduce room temperature AV` = TRUE,
+    `CO2 certificates AV` = TRUE,
+  ) %>% 
+  select(
+    `Replace car AV`,
+    `Sell car AV`,
+    `Reduce car mileage AV`,
+    `Reduce short flights AV`,
+    `Reduce medium flights AV`,
+    `Reduce long flights AV`,
+    `Change diet AV`,
+    `Insulate roof AV`,
+    `Insulate facade AV`,
+    `Replace windows AV`,
+    `Install solar panels AV`,
+    `Install ventilation AV`,
+    `Install heat pump AV`,
+    `Reduce room temperature AV`,
+    `CO2 certificates AV`,
+    ID
+  ) 
+
+
+pe_availability <- pe_availability %>% mutate_all(., as.numeric)
+  
+
+# combine tables
+pe_choice_availability <- pe_availability %>% 
+  left_join(pe_choice, by = "ID")
+
+
+# add socio-demos as controls
+df_reduced <- df %>% select(
+  age,
+    income,
+    edu,
+    gender, ID) %>% 
+  left_join(df_baseline_infos, by = c("ID" = "pid"), keep = T)
+
+df_reduced <- df_reduced %>% 
+  mutate(
+    age_cat =
+      case_when(
+        age < 30 ~ 1,
+        age > 29 & age < 66 ~ 2,
+        age > 65 ~ 3,
+        TRUE ~ NA
+      ),
+    income_num =
+      case_when(
+        income == "under 2000 chf" ~ 1,
+        income == "2001 to 4000 chf" ~ 2,
+        income == "4001 to 6000 chf" ~ 3,
+        income == "6001 to 8000 chf" ~ 4,
+        income == "8001 to 10000 chf" ~ 5,
+        income == "10001 to 12000 chf" ~ 6,
+        income == "12001 to 14000 chf" ~ 7,
+        income == "14001 to 16000 chf" ~ 8,
+        income == "16001 to 18000 chf" ~ 9,
+        income == "above 18000 chf" ~ 10,
+        TRUE ~ NA
+      ),
+    edu_tertiary =
+          case_when(
+            edu == "compulsory" ~ 0,
+            edu == "vocational" ~ 0,
+            edu == "high school" ~ 0,
+            edu == "high. vocational" ~ 0,
+            edu ==  "Appl. sciences" ~ 1,
+            edu == "university" ~ 1,
+            edu == "other" ~ 0,
+    TRUE ~ NA
+          ),
+    Residence =
+      case_when(
+        are_city_type_2012_red == 1 ~ 1,
+        are_city_type_2012_red == 2 ~ 2,
+        are_city_type_2012_red == 3 ~ 3,
+        TRUE ~ NA
+      ),
+  Language =
+    case_when(
+      w1_lang == 1 ~ 1,
+      TRUE ~ 0
+    ),
+  gender = case_when(
+    gender == "male" ~ 1,
+    gender == "female" ~ 0,
+    TRUE ~ NA
+    )
+  ) %>% 
+  select(
+    age_cat,
+    edu_tertiary,
+    income_num,
+    gender,
+    Residence,
+    Language,
+    ID
+  )
+
+
+# combine dataframe
+df_modelframe <- pe_choice_availability %>% 
+  left_join(df_reduced, by = "ID")
+
+
+# final adjustments/recodings
+df_modelframe <- df_modelframe %>% 
+  mutate(Residence = factor(Residence, labels = c("City", "Intermediary", "Rural")),
+         age_fact = factor(age_cat, labels = c("18-29", "30-64", "65+")))
+
+############################################
+# create predictions for income and climate concern
+############################################
+
+
+## Replace car
+modelframe <- df_modelframe %>% filter(`Replace car AV` == 1)
+
+model_repl_car <- glm(`Replace car` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+coef_summary <- summary(model_repl_car)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_repl_car <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_repl_car <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+
+pred_repl_car_income <- predictions(
+    model_repl_car,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Replace car",
+         mitigation_strategy_type = "Technology"
+  )
+
+
+
+
+
+pred_repl_car_climate_concern <- predictions(
+    model_repl_car,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Replace car",
+         mitigation_strategy_type = "Technology"
+  )
+
+
+## Insulate roof
+modelframe <- df_modelframe %>% filter(`Insulate roof AV` == 1)
+
+model_insulate_roof <- glm(`Insulate roof` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+coef_summary <- summary(model_insulate_roof)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_insulate_roof <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_insulate_roof <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+pred_insulate_roof_income <- predictions(
+    model_insulate_roof,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Insulate roof",
+         mitigation_strategy_type = "Technology"
+  )
+
+
+pred_insulate_roof_climate_concern <- predictions(
+    model_insulate_roof,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Insulate roof",
+         mitigation_strategy_type = "Technology"
+  )
+
+## Insulate facade
+modelframe <- df_modelframe %>% filter(`Insulate facade AV` == 1)
+
+model_insulate_facade <- glm(`Insulate facade` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+coef_summary <- summary(model_insulate_facade)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_insulate_facade <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_insulate_facade <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+pred_insulate_facade_income <- predictions(
+    model_insulate_facade,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Insulate facade",
+         mitigation_strategy_type = "Technology"
+  )
+
+pred_insulate_facade_climate_concern <- predictions(
+    model_insulate_facade,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Insulate facade",
+         mitigation_strategy_type = "Technology"
+  )
+
+## Replace windows
+modelframe <- df_modelframe %>% filter(`Replace windows AV` == 1)
+
+model_replace_windows <- glm(`Replace windows` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+coef_summary <- summary(model_replace_windows)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_replace_windows <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_replace_windows <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+pred_replace_windows_income <- predictions(
+    model_replace_windows,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Replace windows",
+         mitigation_strategy_type = "Technology"
+  )
+
+pred_replace_windows_climate_concern <- predictions(
+    model_replace_windows,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Replace windows",
+         mitigation_strategy_type = "Technology"
+  )
+
+## Install solar panels
+modelframe <- df_modelframe %>% filter(`Install solar panels AV` == 1)
+
+model_install_solar <- glm(`Install solar panels` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+coef_summary <- summary(model_install_solar)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_install_solar <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_install_solar <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+pred_install_solar_income <- predictions(
+    model_install_solar,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Install solar panels",
+         mitigation_strategy_type = "Technology"
+  )
+
+pred_install_solar_climate_concern <- predictions(
+    model_install_solar,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Install solar panels",
+         mitigation_strategy_type = "Technology"
+  )
+
+## Install ventilation
+modelframe <- df_modelframe %>% filter(`Install ventilation AV` == 1)
+
+model_install_ventilation <- glm(`Install ventilation` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+coef_summary <- summary(model_install_ventilation)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_install_ventilation <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_install_ventilation <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+pred_install_ventilation_income <- predictions(
+    model_install_ventilation,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Install ventilation",
+         mitigation_strategy_type = "Technology"
+  )
+
+pred_install_ventilation_climate_concern <- predictions(
+    model_install_ventilation,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Install ventilation",
+         mitigation_strategy_type = "Technology"
+  )
+
+## Install heat pump
+modelframe <- df_modelframe %>% filter(`Install heat pump AV` == 1)
+
+model_install_heat_pump <- glm(`Install heat pump` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+coef_summary <- summary(model_install_heat_pump)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_install_heat_pump <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_install_heat_pump <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+pred_install_heat_pump_income <- predictions(
+    model_install_heat_pump,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Install heat pump",
+         mitigation_strategy_type = "Technology"
+  )
+
+
+pred_install_heat_pump_climate_concern <- predictions(
+    model_install_heat_pump,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Install heat pump",
+         mitigation_strategy_type = "Technology"
+  )
+
+## Sell car
+modelframe <- df_modelframe %>% filter(`Sell car AV` == 1)
+
+model_sell_car <- glm(`Sell car` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+coef_summary <- summary(model_sell_car)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_sell_car <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_sell_car <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+pred_sell_car_income <- predictions(
+    model_sell_car,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Sell car",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+pred_sell_car_climate_concern <- predictions(
+    model_sell_car,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Sell car",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+## Reduce car mileage
+modelframe <- df_modelframe %>% filter(`Reduce car mileage AV` == 1)
+
+model_reduce_car_mileage <- glm(`Reduce car mileage` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+
+coef_summary <- summary(model_reduce_car_mileage)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_reduce_car_mileage <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_reduce_car_mileage <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+
+pred_reduce_car_mileage_income <- predictions(
+    model_reduce_car_mileage,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Reduce car mileage",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+pred_reduce_car_mileage_climate_concern <- predictions(
+    model_reduce_car_mileage,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Reduce car mileage",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+## Reduce short flights
+modelframe <- df_modelframe %>% filter(`Reduce short flights AV` == 1)
+
+model_reduce_short_flights <- glm(`Reduce short flights` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+coef_summary <- summary(model_reduce_short_flights)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_reduce_short_flights <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_reduce_short_flights <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+
+pred_reduce_short_flights_income <- predictions(
+    model_reduce_short_flights,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Reduce short flights",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+pred_reduce_short_flights_climate_concern <- predictions(
+    model_reduce_short_flights,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Reduce short flights",
+         mitigation_strategy_type = "Behavior"
+  )
+
+## Reduce medium flights
+modelframe <- df_modelframe %>% filter(`Reduce medium flights AV` == 1)
+
+model_reduce_medium_flights <- glm(`Reduce medium flights` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+
+coef_summary <- summary(model_reduce_medium_flights)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_reduce_medium_flights <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_reduce_medium_flights <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+pred_reduce_medium_flights_income <- predictions(
+    model_reduce_medium_flights,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Reduce medium flights",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+pred_reduce_medium_flights_climate_concern <- predictions(
+    model_reduce_medium_flights,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Reduce medium flights",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+
+## Reduce long flights
+modelframe <- df_modelframe %>% filter(`Reduce long flights AV` == 1)
+
+model_reduce_long_flights <- glm(`Reduce long flights` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+
+coef_summary <- summary(model_reduce_long_flights)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_reduce_long_flights <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_reduce_long_flights <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+pred_reduce_long_flights_income <- predictions(
+    model_reduce_long_flights,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Reduce long flights",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+pred_reduce_long_flights_climate_concern <- predictions(
+    model_reduce_long_flights,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Reduce long flights",
+         mitigation_strategy_type = "Behavior"
+  )
+
+## Change diet
+modelframe <- df_modelframe %>% filter(`Change diet AV` == 1)
+
+model_change_diet <- glm(`Change diet` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+
+coef_summary <- summary(model_change_diet)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_change_diet <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_change_diet <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+pred_change_diet_income <- predictions(
+    model_change_diet,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Change diet",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+
+pred_change_diet_climate_concern <- predictions(
+    model_change_diet,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Change diet",
+         mitigation_strategy_type = "Behavior"
+  )
+
+## Reduce room temperature
+modelframe <- df_modelframe %>% filter(`Reduce room temperature AV` == 1)
+
+model_reduce_room_temperature <- glm(`Reduce room temperature` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+coef_summary <- summary(model_reduce_room_temperature)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_reduce_room_temperature <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_reduce_room_temperature <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+
+pred_reduce_room_temperature_income <- predictions(
+    model_reduce_room_temperature,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Reduce room temperature",
+         mitigation_strategy_type = "Behavior"
+  )
+
+pred_reduce_room_temperature_climate_concern <- predictions(
+    model_reduce_room_temperature,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Reduce room temperature",
+         mitigation_strategy_type = "Behavior"
+  )
+
+
+## CO2 certificates
+modelframe <- df_modelframe %>% filter(`CO2 certificates AV` == 1)
+
+model_co2_certificates <- glm(`CO2 certificates` ~ 
+                  income_num +
+                  cc_concern_binary +
+                  age_fact +  # model with socio-dems controls
+                  edu_tertiary +
+                  gender +
+                  Residence +
+                  Language,
+                  family = binomial, data = modelframe)
+
+
+
+coef_summary <- summary(model_co2_certificates)$coefficients
+
+# Extract the p-value for income_num
+p_value_income_co2_certificates <- coef_summary["income_num", "Pr(>|z|)"]
+# Extract the p-value for income_num
+p_value_climate_concern_co2_certificates <- coef_summary["cc_concern_binary", "Pr(>|z|)"]
+
+pred_co2_certificates_income <- predictions(
+    model_co2_certificates,
+    type = "response",
+    by = "income_num",
+    newdata = datagrid(income_num = c(3,7), grid_type = "counterfactual")) %>% 
+#  mutate(income_num = as.character(income_num)) %>% 
+  pivot_longer(cols = income_num, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "income_num" ~ "Household Income"),
+         name =
+           case_when(
+             name == 3 ~ "Low",
+             name == 7 ~ "High"
+           ),
+         mitigation_strategy = "Buy CO2 certificates",
+         mitigation_strategy_type = "CO2 certificates"
+  )
+
+
+pred_co2_certificates_climate_concern <- predictions(
+    model_co2_certificates,
+    type = "response",
+    by = "cc_concern_binary",
+    newdata = datagrid(cc_concern_binary = 0:1, grid_type = "counterfactual")) %>% 
+#  mutate(cc_concern_binary = as.character(cc_concern_binary)) %>% 
+  pivot_longer(cols = cc_concern_binary, names_to ="variable",
+values_to = "name") %>% 
+  mutate(variable = 
+           case_when(
+             variable == "cc_concern_binary" ~ "Climate Concern"),
+         name =
+           case_when(
+             name == 0 ~ "Low",
+             name == 1 ~ "High"
+           ),
+         mitigation_strategy = "Buy CO2 certificates",
+         mitigation_strategy_type = "CO2 certificates"
+  )
+
+
+############################################
+# create variable and combined model tables
+############################################
+
+## variable table
+
+modelframe_var_table <- df_modelframe %>% 
+  mutate(
+    `Replace car (Chosen)` = if_else(`Replace car AV` == 1, `Replace car`, NA),
+    `Insulate roof (Chosen)` = if_else(`Insulate roof AV` == 1, `Insulate roof`, NA),
+    `Insulate facade (Chosen)` = if_else(`Insulate facade AV` == 1, `Insulate facade`, NA),
+    `Replace windows (Chosen)` = if_else(`Replace windows AV` == 1, `Replace windows`, NA),
+    `Install solar panels (Chosen)` = if_else(`Install solar panels AV` == 1, `Install solar panels`, NA),
+    `Install ventilation (Chosen)` = if_else(`Install ventilation AV` == 1, `Install ventilation`, NA),
+    `Install heat pump (Chosen)` = if_else(`Install heat pump AV` == 1, `Install heat pump`, NA),
+    `Sell car (Chosen)` = if_else(`Sell car AV` == 1, `Sell car`, NA),
+    `Reduce car mileage (Chosen)` = if_else(`Reduce car mileage AV` == 1, `Reduce car mileage`, NA),
+    `Reduce short flights (Chosen)` = if_else(`Reduce short flights AV` == 1, `Reduce short flights`, NA),
+    `Reduce medium flights (Chosen)` = if_else(`Reduce medium flights AV` == 1, `Reduce medium flights`, NA),
+    `Reduce long flights (Chosen)` = if_else(`Reduce long flights AV` == 1, `Reduce long flights`, NA),
+    `Change diet (Chosen)` = if_else(`Change diet AV` == 1, `Change diet`, NA),
+    `Reduce room temperature (Chosen)` = if_else(`Reduce room temperature AV` == 1, `Reduce room temperature`, NA),
+    `CO2 certificates (Chosen)` = if_else(`CO2 certificates AV` == 1, `CO2 certificates`, NA),
+    `Replace car (Available)` = `Replace car AV`,
+    `Insulate roof (Available)` = `Insulate roof AV`,
+    `Insulate facade (Available)` = `Insulate facade AV`,
+    `Replace windows (Available)` = `Replace windows AV`,
+    `Install solar panels (Available)` = `Install solar panels AV`,
+    `Install ventilation (Available)` = `Install ventilation AV`,
+    `Install heat pump (Available)` = `Install heat pump AV`,
+    `Sell car (Available)` = `Sell car AV`,
+    `Reduce car mileage (Available)` = `Reduce car mileage AV`,
+    `Reduce short flights (Available)` = `Reduce short flights AV`,
+    `Reduce medium flights (Available)` = `Reduce medium flights AV`,
+    `Reduce long flights (Available)` = `Reduce long flights AV`,
+    `Change diet (Available)` = `Change diet AV`,
+    `Reduce room temperature (Available)` = `Reduce room temperature AV`,
+    `CO2 certificates (Available)` = `CO2 certificates AV`,
+  )
+
+
+
+
+modelframe_var_table <- modelframe_var_table %>% 
+  mutate(
+    `Climate concern (High)` = cc_concern_binary,
+    `Age` = age_fact,
+    `Education (Tertiary )` = edu_tertiary,
+    `Household Income` = income_num,
+    `Gender (Male)` = gender,
+    `Settlement Structure` = Residence,
+    `Language (German)` = Language
+  ) 
+
+modelframe_var_table <- modelframe_var_table %>% 
+select(-c(income_top_middle_bottom,
+          age_fact,
+          edu_tertiary,
+          income_num,
+          cc_concern_binary,
+          cc_concern_num,
+          gender,
+          Residence,
+          Language,
+          age_cat,
+          `Replace car AV`,
+    `Sell car AV`,
+    `Reduce car mileage AV`,
+    `Reduce short flights AV`,
+    `Reduce medium flights AV`,
+    `Reduce long flights AV`,
+    `Change diet AV`,
+    `Insulate roof AV`,
+    `Insulate facade AV`,
+    `Replace windows AV`,
+    `Install solar panels AV`,
+    `Install ventilation AV`,
+    `Install heat pump AV`,
+    `Reduce room temperature AV`,
+    `CO2 certificates AV`,
+    ID,
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`
+          )
+       )
+
+
+############################################
+# create predictions table
+############################################
+
+combined_pred_table_choice_income_climate_concern <-
+  bind_rows(pred_repl_car_income,
+            pred_insulate_roof_income,
+            pred_insulate_facade_income,
+            pred_replace_windows_income,
+            pred_install_solar_income,
+            pred_install_ventilation_income,
+            pred_install_heat_pump_income,
+            pred_sell_car_income,
+            pred_reduce_car_mileage_income,
+            pred_reduce_short_flights_income,
+            pred_reduce_medium_flights_income,
+            pred_reduce_long_flights_income,
+            pred_change_diet_income,
+            pred_reduce_room_temperature_income,
+            pred_co2_certificates_income,
+            pred_repl_car_climate_concern,
+            pred_insulate_roof_climate_concern,
+            pred_insulate_facade_climate_concern,
+            pred_replace_windows_climate_concern,
+            pred_install_solar_climate_concern,
+            pred_install_ventilation_climate_concern,
+            pred_install_heat_pump_climate_concern,
+            pred_sell_car_climate_concern,
+            pred_reduce_car_mileage_climate_concern,
+            pred_reduce_short_flights_climate_concern,
+            pred_reduce_medium_flights_climate_concern,
+            pred_reduce_long_flights_climate_concern,
+            pred_change_diet_climate_concern,
+            pred_reduce_room_temperature_climate_concern,
+            pred_co2_certificates_climate_concern
+            )
+
+
+
+
+combined_pred_table_choice_income_climate_concern <- combined_pred_table_choice_income_climate_concern %>% mutate(mitigation_strategy = factor(mitigation_strategy, levels = c(
+                                                  "Install heat pump",
+           "Install ventilation",
+           "Install solar panels",
+           "Replace windows",
+           "Insulate facade",
+           "Insulate roof",
+           "Replace car",
+           "Reduce room temperature",
+           "Change diet",
+           "Reduce long flights",
+           "Reduce medium flights",
+           "Reduce short flights",
+           "Reduce car mileage",
+          "Sell car",
+          "Buy CO2 certificates"))
+)
+
+
+
+
+
+## add model-based p-values
+
+combined_pred_table_choice_income_climate_concern <- combined_pred_table_choice_income_climate_concern %>%
+  mutate(
+    p.value_model = 
+      case_when(
+        mitigation_strategy == "Replace car" & variable == "Household Income" ~ p_value_income_repl_car,
+        mitigation_strategy == "Replace car" & variable == "Climate Concern" ~ p_value_climate_concern_repl_car,
+        mitigation_strategy == "Insulate roof" & variable == "Household Income" ~ p_value_income_insulate_roof,
+        mitigation_strategy == "Insulate roof" & variable == "Climate Concern" ~ p_value_climate_concern_insulate_roof,
+        mitigation_strategy == "Insulate facade" & variable == "Household Income" ~ p_value_income_insulate_facade,
+        mitigation_strategy == "Insulate facade" & variable == "Climate Concern" ~ p_value_climate_concern_insulate_facade,
+        mitigation_strategy == "Replace windows" & variable == "Household Income" ~ p_value_income_replace_windows,
+        mitigation_strategy == "Replace windows" & variable == "Climate Concern" ~ p_value_climate_concern_replace_windows,
+        mitigation_strategy == "Install solar panels" & variable == "Household Income" ~ p_value_income_install_solar,
+        mitigation_strategy == "Install solar panels" & variable == "Climate Concern" ~ p_value_climate_concern_install_solar,
+        mitigation_strategy == "Install ventilation" & variable == "Household Income" ~ p_value_income_install_ventilation,
+        mitigation_strategy == "Install ventilation" & variable == "Climate Concern" ~ p_value_climate_concern_install_ventilation,
+        mitigation_strategy == "Install heat pump" & variable == "Household Income" ~ p_value_income_install_heat_pump,
+        mitigation_strategy == "Install heat pump" & variable == "Climate Concern" ~ p_value_climate_concern_install_heat_pump,
+        mitigation_strategy == "Sell car" & variable == "Household Income" ~ p_value_income_sell_car,
+        mitigation_strategy == "Sell car" & variable == "Climate Concern" ~ p_value_climate_concern_sell_car,
+        mitigation_strategy == "Reduce car mileage" & variable == "Household Income" ~ p_value_income_reduce_car_mileage,
+        mitigation_strategy == "Reduce car mileage" & variable == "Climate Concern" ~ p_value_climate_concern_reduce_car_mileage,
+        mitigation_strategy == "Reduce short flights" & variable == "Household Income" ~ p_value_income_reduce_short_flights,
+        mitigation_strategy == "Reduce short flights" & variable == "Climate Concern" ~ p_value_climate_concern_reduce_short_flights,
+        mitigation_strategy == "Reduce medium flights" & variable == "Household Income" ~ p_value_income_reduce_medium_flights,
+        mitigation_strategy == "Reduce medium flights" & variable == "Climate Concern" ~ p_value_climate_concern_reduce_medium_flights,
+        mitigation_strategy == "Reduce long flights" & variable == "Household Income" ~ p_value_income_reduce_long_flights,
+        mitigation_strategy == "Reduce long flights" & variable == "Climate Concern" ~ p_value_climate_concern_reduce_long_flights,
+        mitigation_strategy == "Change diet" & variable == "Household Income" ~ p_value_income_change_diet,
+        mitigation_strategy == "Change diet" & variable == "Climate Concern" ~ p_value_climate_concern_change_diet,
+        mitigation_strategy == "Reduce room temperature" & variable == "Household Income" ~ p_value_income_reduce_room_temperature,
+        mitigation_strategy == "Reduce room temperature" & variable == "Climate Concern" ~ p_value_climate_concern_reduce_room_temperature,
+        mitigation_strategy == "Buy CO2 certificates" & variable == "Household Income" ~ p_value_income_co2_certificates,
+        mitigation_strategy == "Buy CO2 certificates" & variable == "Climate Concern" ~ p_value_climate_concern_co2_certificates
+
+    )
+  )
+
+
+
+
+# prep table for printing
+combined_pred_table_choice_income_climate_concern_table <- combined_pred_table_choice_income_climate_concern %>%
+  select(variable, mitigation_strategy_type, mitigation_strategy, name, estimate, std.error, p.value, conf.low, conf.high)  
+
+# round values
+combined_pred_table_choice_income_climate_concern_table <- combined_pred_table_choice_income_climate_concern_table %>% 
+  mutate(
+    estimate = round(estimate*100, digits = 1),
+    std.error = round(std.error, digits = 4),
+    conf.low = round(conf.low*100, digits = 1),
+    conf.high = round(conf.high*100, digits = 1),
+    p.value = round(p.value, digits = 4)
+  )
+
+
+############################################
+# create combined plot based on predictions
+############################################
+
+
+ 
+ 
+ ##################################################################################
+
+##### COEF plot with greyed out CIS AND DIFFERENT SHAPES             ##########
+
+#####################################################################
+
+
+##### PLOTS INCOME #########
+
+# technology
+
+p_technology_1 <- combined_pred_table_choice_income_climate_concern %>% 
+  filter(mitigation_strategy_type == "Technology" & variable == "Household Income") %>% 
+  ggplot(aes(x = mitigation_strategy, y = estimate*100, fill = name)) +
+  geom_errorbar(aes(ymin = conf.low*100, ymax = conf.high*100, color = ifelse(p.value_model < 0.05, "black", "grey80")),
+                width = 0.4,       # Control the width of whiskers
+                size = 0.8,
+                position = position_dodge(width = 0.8)) +
+  geom_point(stat = "identity",
+             position = position_dodge(width = 0.8),
+             aes(shape = name, 
+                 color = ifelse(p.value_model < 0.05, "black", "grey80")), 
+             size = 3) +
+  scale_y_continuous(labels = label_percent(scale = 1),
+                     limits = c(0, 100)) +
+  scale_fill_manual("Income Group",
+                    values = c("#5BA1D7","#9CC7E7"), # Adjust fill color
+                    labels = c("High", "Low")) +
+    scale_shape_manual("Level", 
+                     values = c(24, 21), # Different shapes (e.g., filled circle, filled triangle)
+                     labels = c("High", "Low")) +
+      scale_color_identity() +  # Directly apply specified colors without mapping
+
+  ggtitle("Income") +
+  labs(x = "Technology", y = NULL) +
+  theme_bw() +
+  # geom_text(aes(y=y*100, x=mitigation_strategy, label =  
+  #                  sprintf("%0.1f", round(y*100, digits = 1))), 
+  #           size = 2, position = position_dodge(width = 0.9), hjust = 3) +
+  coord_flip() +
+  theme(legend.position = "none")
+
+ 
+ 
+ 
+# behaviour
+
+p_behavior_1 <- combined_pred_table_choice_income_climate_concern %>% 
+  filter(mitigation_strategy_type == "Behavior" & variable == "Household Income") %>% 
+  ggplot(aes(x = mitigation_strategy, y = estimate*100, fill = name)) +
+  geom_errorbar(aes(ymin = conf.low*100, ymax = conf.high*100, color = ifelse(p.value_model < 0.05, "black", "grey80")),
+                width = 0.4,       # Control the width of whiskers
+                size = 0.8,
+                position = position_dodge(width = 0.8)) +
+  geom_point(stat = "identity",
+             position = position_dodge(width = 0.8),
+             aes(shape = name, 
+                 color = ifelse(p.value_model < 0.05, "black", "grey80")), 
+             size = 3) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(0, 100)) +
+  scale_fill_manual("Income Group", values = c("#EB5C5E","#F4A4A5"), # Adjust fill color
+                    labels = c("High", "Low")) +
+    scale_shape_manual("Level", 
+                     values = c(24, 21), # Different shapes (e.g., filled circle, filled triangle)
+                     labels = c("High", "Low")) +
+      scale_color_identity() +  # Directly apply specified colors without mapping
+
+#  ggtitle("Behavior") +
+  labs(x = "Behavior", y = NULL) +
+  theme_bw() +
+  # geom_text(aes(y=y*100, x=mitigation_strategy, label =  
+  #                  sprintf("%0.1f", round(y*100, digits = 1))), 
+  #           size = 2, position = position_dodge(width = 0.9), hjust = 3) +
+  coord_flip() +
+  theme(legend.position = "none")
+# certificates
+#FFFFFF
+
+p_certificates_1 <- combined_pred_table_choice_income_climate_concern %>% 
+  filter(mitigation_strategy_type == "CO2 certificates" & variable == "Household Income") %>% 
+  ggplot(aes(x = mitigation_strategy, y = estimate*100, fill = name)) +
+      geom_errorbar(aes(ymin = conf.low*100, ymax = conf.high*100, color = ifelse(p.value_model < 0.05, "black", "grey80")),
+                width = 0.4,       # Control the width of whiskers
+                size = 0.8,
+                position = position_dodge(width = 0.8)) +
+  geom_point(stat = "identity",
+             position = position_dodge(width = 0.8),
+             aes(shape = name, 
+                 color = ifelse(p.value_model < 0.05, "black", "grey80")), 
+             size = 3) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(0, 100)) +
+  scale_fill_manual("Income Group", values = c("#FFFFAD","#FFFFFF"), # Adjust fill color
+                    labels = c("High", "Low")) +
+    scale_shape_manual("Level", 
+                     values = c(24, 21), # Different shapes (e.g., filled circle, filled triangle)
+                     labels = c("High", "Low")) +
+      scale_color_identity() +  # Directly apply specified colors without mapping
+
+#  ggtitle("CO2 Certificates") +
+  labs(x = "Certificates", y = "Predicted choice share\n(among those with option available)") +
+  theme_bw() +
+  # geom_text(aes(y=y*100, x=mitigation_strategy, label =  
+  #                  sprintf("%0.1f", round(y*100, digits = 1))), 
+  #           size = 2, position = position_dodge(width = 0.9), hjust = 3) +
+  coord_flip() +
+  theme(legend.position = "none")
+
+
+
+##### PLOTS CLIMATE CONCERN #########
+
+# technology
+
+p_technology_2 <- combined_pred_table_choice_income_climate_concern %>% 
+  filter(mitigation_strategy_type == "Technology" & variable == "Climate Concern") %>% 
+  ggplot(aes(x = mitigation_strategy, y = estimate * 100, fill = name)) +
+  geom_errorbar(aes(ymin = conf.low * 100, ymax = conf.high * 100, 
+                    color = ifelse(p.value_model < 0.05, "black", "grey80")),
+                width = 0.4, 
+                size = 0.8, 
+                position = position_dodge(width = 0.8)) +
+  geom_point(stat = "identity",
+             position = position_dodge(width = 0.8),
+             aes(shape = name, 
+                 color = ifelse(p.value_model < 0.05, "black", "grey80")), 
+             size = 3) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(0, 100)) +
+  scale_fill_manual("Level", 
+                    values = c("#5BA1D7", "#9CC7E7"), 
+                    labels = c("High", "Low")) +
+  scale_shape_manual("Level", 
+                     values = c(24, 21), # Different shapes (e.g., filled circle, filled triangle)
+                     labels = c("High", "Low")) +
+  scale_color_identity() +
+  ggtitle("Climate concern") +
+  labs(x = "", y = NULL) +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  coord_flip() +
+  guides(fill = guide_legend(reverse = TRUE),
+         shape = guide_legend(reverse = TRUE))  # Reverse legend order for both fill and shape
+
+
+
+# behaviour
+
+p_behavior_2 <- combined_pred_table_choice_income_climate_concern %>% 
+  filter(mitigation_strategy_type == "Behavior" & variable == "Climate Concern") %>%
+  ggplot(aes(x = mitigation_strategy, y = estimate*100, fill = name)) +
+    geom_errorbar(aes(ymin = conf.low*100, ymax = conf.high*100, color = ifelse(p.value_model < 0.05, "black", "grey80")),
+                width = 0.4,       # Control the width of whiskers
+                size = 0.8,
+                position = position_dodge(width = 0.8)) +
+  geom_point(stat = "identity",
+             position = position_dodge(width = 0.8),
+             aes(shape = name, 
+                 color = ifelse(p.value_model < 0.05, "black", "grey80")), 
+             size = 3) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(0, 100)) +
+  scale_fill_manual("Level", values = c("#EB5C5E","#F4A4A5"), # Adjust fill color
+                    labels = c("High", "Low")) +
+  scale_shape_manual("Level", 
+                     values = c(24, 21), # Different shapes (e.g., filled circle, filled triangle)
+                     labels = c("High", "Low")) +
+      scale_color_identity() +  # Directly apply specified colors without mapping
+
+#  ggtitle("Behavior") +
+  labs(x = "", y = NULL) +
+  theme_bw() +
+  # geom_text(aes(y=y*100, x=mitigation_strategy, label =  
+  #                  sprintf("%0.1f", round(y*100, digits = 1))), 
+  #           size = 2, position = position_dodge(width = 0.9), hjust = 3) +
+  theme(axis.text.y = element_blank(),  # Remove x-axis text
+        axis.ticks.y = element_blank()) +  # Remove x-axis ticks
+  coord_flip() +
+  guides(fill = guide_legend(reverse = TRUE),
+         shape = guide_legend(reverse = TRUE))  # Reverse legend order for both fill and shape
+
+# certificates
+#FFFFFF
+
+p_certificates_2 <- combined_pred_table_choice_income_climate_concern %>% 
+  filter(mitigation_strategy_type == "CO2 certificates" & variable == "Climate Concern") %>% 
+  ggplot(aes(x = mitigation_strategy, y = estimate*100, fill = name)) +
+      geom_errorbar(aes(ymin = conf.low*100, ymax = conf.high*100, color = ifelse(p.value_model < 0.05, "black", "grey80")),
+                width = 0.4,       # Control the width of whiskers
+                size = 0.8,
+                position = position_dodge(width = 0.8)) +
+  geom_point(stat = "identity",
+             position = position_dodge(width = 0.8),
+             aes(shape = name, 
+                 color = ifelse(p.value_model < 0.05, "black", "grey80")), 
+             size = 3) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(0, 100)) +
+  scale_fill_manual("Level", values = c("#FFFFAD","#FFFFFF"), # Adjust fill color
+                    labels = c("High", "Low")) +
+    scale_shape_manual("Level", 
+                     values = c(24, 21), # Different shapes (e.g., filled circle, filled triangle)
+                     labels = c("High", "Low")) +
+      scale_color_identity() +  # Directly apply specified colors without mapping
+
+#  ggtitle("CO2 Certificates") +
+  labs(x = "", y = "Predicted choice share\n(among those with option available)") +
+  theme_bw() +
+  # geom_text(aes(y=y*100, x=mitigation_strategy, label =  
+  #                  sprintf("%0.1f", round(y*100, digits = 1))), 
+  #           size = 2, position = position_dodge(width = 0.9), hjust = 3) +
+  theme(axis.text.y = element_blank(),  # Remove x-axis text
+        axis.ticks.y = element_blank()) +  # Remove x-axis ticks
+  coord_flip() +
+  guides(fill = guide_legend(reverse = TRUE),
+         shape = guide_legend(reverse = TRUE))  # Reverse legend order for both fill and shape
+
+
+
+
+plot_combined_income <- ggarrange(p_technology_1, p_behavior_1, p_certificates_1,
+          ncol = 1,
+          nrow = 3,
+          align = "v",
+          heights = c(3.3,3.3,1.3))
+
+plot_combined_climate_concern <- ggarrange(p_technology_2, p_behavior_2, p_certificates_2,
+          ncol = 1,
+          nrow = 3,
+          align = "v",
+          heights = c(3.3,3.3,1.3))
+
+
+ggarrange(plot_combined_income, plot_combined_climate_concern, 
+          ncol = 2,
+          nrow = 1,
+#          labels = c("Income", "Climate concern"),
+          widths = c(1.19,1),
+          align = "v")
+
+
+```
+
+
+# Extended data figure 2: Carbon emission reduction preferences (full sample) 
+
+
+```{r Extended data figure 2: Carbon emission reduction preferences (full sample), fig.height=5.5, fig.width=8.27, dpi=600, echo=FALSE}
+
+
+## prep calculation of choice shares
+# choice probabilities
+
+
+# prepare choice table
+pe_choice <- df %>% 
+  mutate(
+    `Replace car` = PE_replace_car__selected,
+    `Sell car` = PE_sell_car__selected,
+    `Reduce car mileage` = PE_reduce_car__selected,
+    `Reduce short flights` = PE_reduce_short_flights__selected,
+    `Reduce medium flights` = PE_reduce_medium_flights__selected,
+    `Reduce long flights` = PE_reduce_long_flights__selected,
+    `Change diet` = PE_diet__selected,
+    `Insulate roof` = PE_insulate_roof__selected,
+    `Insulate facade` = PE_insulate_facade__selected,
+    `Replace windows` = PE_replace_windows__selected,
+    `Install solar panels` = PE_solar_panels__selected,
+    `Install ventilation` = PE_ventilation__selected,
+    `Install heat pump` = PE_heat_pump__selected,
+    `Reduce room temperature` = PE_reduce_temperature__selected,
+    `CO2 certificates` = PE_certificate__selected,
+  ) %>% 
+  select(
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`,
+    ID
+  ) 
+
+
+pe_choice <- pe_choice %>% mutate_all(., as.numeric)
+  
+pe_choice_shares <- pe_choice %>% select(-c(ID)) %>% summarise_all(mean) %>% 
+  pivot_longer(cols = everything(), names_to = "mitigation_strategy", values_to = "respondent_share")
+
+
+pe_choice_shares <- pe_choice_shares %>% mutate(mitigation_strategy = factor(mitigation_strategy, levels = c(
+            "Install heat pump",
+           "Install ventilation",
+           "Install solar panels",
+           "Replace windows",
+           "Insulate facade",
+           "Insulate roof",
+           "Replace car",
+           "Reduce room temperature",
+           "Change diet",
+           "Reduce long flights",
+           "Reduce medium flights",
+           "Reduce short flights",
+           "Reduce car mileage",
+          "Sell car",
+          "CO2 certificates")),
+          Status = "Chosen")
+
+
+
+
+
+
+## add mean emission reduction per strategy (respondent level)
+df_emission_reductions_strategy_population <- df_emission_reductions_strategy %>% 
+select(ID, actual_repl_car_share_population,
+                   actual_sell_car_share_population,
+                   actual_reduce_car_share_population,
+                   actual_reduce_short_flights_share_population,
+                   actual_reduce_medium_flights_share_population,
+                   actual_reduce_long_flights_share_population,
+                   actual_reduce_diet_share_population,
+                   actual_reduce_roof_share_population,
+                   actual_reduce_facade_share_population,
+                   actual_reduce_windows_share_population,
+                   actual_reduce_pv_share_population,
+                   actual_reduce_ventilation_share_population,
+                   actual_reduce_heatpump_share_population,
+                   actual_reduce_temperature_share_population,
+                   actual_reduce_certificates_share_population)
+
+
+
+
+
+
+df_emission_reductions_strategy_population <- df_emission_reductions_strategy_population %>% 
+  pivot_longer(cols = actual_repl_car_share_population:`actual_reduce_certificates_share_population`, names_to = "mitigation_strategy", values_to = "emission_reductions") %>% 
+  mutate(mitigation_strategy = 
+           case_when(
+             mitigation_strategy == "actual_repl_car_share_population" ~ "Replace car",
+                     mitigation_strategy == "actual_sell_car_share_population" ~ "Sell car",
+                     mitigation_strategy == "actual_reduce_car_share_population" ~ "Reduce car mileage",
+                     mitigation_strategy == "actual_reduce_short_flights_share_population" ~ "Reduce short flights",
+                     mitigation_strategy == "actual_reduce_medium_flights_share_population" ~ "Reduce medium flights",
+                     mitigation_strategy == "actual_reduce_long_flights_share_population" ~ "Reduce long flights",
+                     mitigation_strategy == "actual_reduce_diet_share_population" ~ "Change diet",
+                     mitigation_strategy == "actual_reduce_roof_share_population" ~ "Insulate roof",
+                     mitigation_strategy == "actual_reduce_facade_share_population" ~ "Insulate facade",
+                     mitigation_strategy == "actual_reduce_windows_share_population" ~ "Replace windows",
+                     mitigation_strategy == "actual_reduce_pv_share_population" ~ "Install solar panels",
+                     mitigation_strategy == "actual_reduce_ventilation_share_population" ~ "Install ventilation",
+                     mitigation_strategy == "actual_reduce_heatpump_share_population" ~ "Install heat pump",
+                     mitigation_strategy == "actual_reduce_temperature_share_population" ~ "Reduce room temperature",
+                     mitigation_strategy == "actual_reduce_certificates_share_population" ~ "CO2 certificates")
+  ) %>% 
+  mutate(mitigation_strategy_type = case_when(
+        mitigation_strategy %in% c(
+          "Install heat pump",
+          "Install ventilation",
+          "Install solar panels",
+          "Replace windows",
+          "Insulate facade",
+          "Insulate roof",
+          "Replace car"
+        ) ~ "Technology",
+        mitigation_strategy %in% c(
+          "Reduce room temperature",
+          "Change diet",
+          "Reduce long flights",
+          "Reduce medium flights",
+          "Reduce short flights",
+          "Reduce car mileage",
+          "Sell car"
+        ) ~ "Behavior",
+        mitigation_strategy == "CO2 certificates" ~ "CO2 Certificates"
+        ))
+
+
+df_emission_reductions_strategy_population <- df_emission_reductions_strategy_population %>% 
+  mutate(mitigation_strategy = factor(mitigation_strategy, levels = c(
+                                                  "Install heat pump",
+           "Install ventilation",
+           "Install solar panels",
+           "Replace windows",
+           "Insulate facade",
+           "Insulate roof",
+           "Replace car",
+           "Reduce room temperature",
+           "Change diet",
+           "Reduce long flights",
+           "Reduce medium flights",
+           "Reduce short flights",
+           "Reduce car mileage",
+          "Sell car",
+          "CO2 certificates")
+          )
+  )
+
+
+
+df_mean_emission_reductions_strategy_population <- df_emission_reductions_strategy_population %>% 
+#  filter(emission_reductions != 0) %>% 
+  group_by(mitigation_strategy) %>% 
+  summarise(mean_emission_reduction = mean(emission_reductions, na.rm = T)) %>% 
+  left_join(distinct(df_emission_reductions_strategy_population, mitigation_strategy, mitigation_strategy_type), 
+            by = "mitigation_strategy")
+
+
+
+## add cost variable
+
+# prepare one time cost variable
+pe_investment <- df %>% 
+  mutate(
+    `Replace car` = PE_replace_car__investment,
+    `Sell car` = 0,
+    `Reduce car mileage` = 0,
+    `Reduce short flights` = 0,
+    `Reduce medium flights` = 0,
+    `Reduce long flights` = 0,
+    `Change diet` = 0,
+    `Insulate roof` = PE_insulate_roof__investment,
+    `Insulate facade` = PE_insulate_facade__investment,
+    `Replace windows` = PE_replace_windows__investment,
+    `Install solar panels` = PE_solar_panels__investment,
+    `Install ventilation` = PE_ventilation__investment,
+    `Install heat pump` = PE_heat_pump__investment,
+    `Reduce room temperature` = 0,
+    `CO2 certificates` = 0,
+  ) %>% 
+  select(
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`,
+    ID
+  ) 
+
+pe_investment <- pe_investment %>% 
+  pivot_longer(cols = `Replace car`:`CO2 certificates`, names_to = "mitigation_strategy", values_to = "one_time_costs")
+
+pe_investment <- pe_investment %>% mutate(mitigation_strategy = factor(mitigation_strategy, levels = c(
+                                                  "Install heat pump",
+           "Install ventilation",
+           "Install solar panels",
+           "Replace windows",
+           "Insulate facade",
+           "Insulate roof",
+           "Replace car",
+           "Reduce room temperature",
+           "Change diet",
+           "Reduce long flights",
+           "Reduce medium flights",
+           "Reduce short flights",
+           "Reduce car mileage",
+          "Sell car",
+          "CO2 certificates")
+          )
+  )
+
+
+# add info on whether option was chosen
+
+# combine reductions and choice dataframe
+pe_choice_reshaped <- pe_choice %>% 
+  pivot_longer(cols = `Replace car`:`CO2 certificates`, names_to = "mitigation_strategy", values_to = "choice")
+
+pe_investment_choice <- pe_investment %>% 
+  left_join(pe_choice_reshaped, by = c("ID", "mitigation_strategy")) 
+
+# set NA if not chosen
+pe_investment_choice <- pe_investment_choice %>%
+  mutate(one_time_cost_if_chosen = if_else(choice == 1, one_time_costs, NA))
+
+
+# summarise costs
+pe_investment_choice <- pe_investment_choice %>%
+  group_by(mitigation_strategy) %>% 
+  summarise(mean_one_time_cost_if_chosen = mean(one_time_cost_if_chosen, na.rm = T))
+
+
+
+####### plot mapping ######
+
+
+# combine dataframes
+map_plot_population <- df_mean_emission_reductions_strategy_population %>% 
+  left_join(pe_choice_shares, by = "mitigation_strategy") %>% 
+  left_join(pe_investment_choice, by = "mitigation_strategy")
+
+
+# add factor levels for plotting
+map_plot_population$mitigation_strategy_type <- factor(map_plot_population$mitigation_strategy_type, levels = c("Technology", "Behavior", "CO2 Certificates"))
+
+
+library(ggrepel)
+
+
+## choice if available
+ggplot() +
+  geom_point(data = map_plot_population, aes(y = mean_emission_reduction*100, x = respondent_share*100)) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(0, 10)) +
+  scale_x_continuous(labels = label_percent(scale = 1), limits = c(0, 75)) +
+  geom_label(data = map_plot_population, aes(y = mean_emission_reduction*100, x = respondent_share*100, label = mitigation_strategy), nudge_y = 3) +
+  ggtitle("") +
+  ylab("Emission reduction (% of initial CO2)") +
+  xlab("Pr(Choice)") +
+  theme_bw()
+
+#
+
+
+
+#### try out -> add costs and include as point size
+
+ggplot() +
+  geom_hline(data = map_plot_population, aes(yintercept=mean(mean_emission_reduction)*100), color="grey50", size=1, linewidth = 0.5, linetype = "dashed") + 
+  geom_vline(data = map_plot_population, aes(xintercept=mean(respondent_share)*100), color="grey50", size=1, linewidth = 0.5, linetype = "dashed") +
+  geom_point(data = map_plot_population, aes(y = mean_emission_reduction*100, x = respondent_share*100, size = abs(mean_one_time_cost_if_chosen), fill = mitigation_strategy_type), shape = 21, color = "black") +
+#  scale_color_manual("Mitigation strategy", values = c("#d7191c", "#ffffbf", "#2c7bb6"),  labels = c("Behavior", "CO2 Certificates", "Technology")) +
+  scale_y_continuous(labels = label_percent(scale = 1), limits = c(0, 8)) +
+  scale_x_continuous(labels = label_percent(scale = 1), limits = c(0, 75)) +
+  geom_label_repel(data = map_plot_population, aes(y = mean_emission_reduction*100, x = respondent_share*100, label = mitigation_strategy, fill = mitigation_strategy_type), box.padding = 0.5,    # Padding around label
+                   point.padding = 0.3, color = "black") +   # Padding around points ) +
+  scale_fill_manual("Mitigation strategy", values = c("#77B2DE", "#EE7072", "#FFFFD8"), labels = c("Technology", "Behavior", "CO2 Certificates")) +
+  # Customize point sizes
+  scale_size_continuous(name = "One-Time Costs", range = c(2, 10)) +  # Smallest size for negative value
+  ggtitle("") +
+  ylab("Emission reduction (% of initial CO2)") +
+  xlab("Choice share (% of participants)") +
+  theme_bw()
+
+```
+
+
+
+# Extended data table 2: Main results priority evaluator overview table
+
+``` {r Extended data table 2: Main results priority evaluator overview table, echo = FALSE}
+
+#######################################################################################################################
+
+####################### create table for supplementary information incl. uncertainty estimates ####################
+
+#######################################################################################################################
+
+# choice probabilities
+# prepare choice table
+pe_choice <- df %>% 
+  mutate(
+    `Replace car` = PE_replace_car__selected,
+    `Sell car` = PE_sell_car__selected,
+    `Reduce car mileage` = PE_reduce_car__selected,
+    `Reduce short flights` = PE_reduce_short_flights__selected,
+    `Reduce medium flights` = PE_reduce_medium_flights__selected,
+    `Reduce long flights` = PE_reduce_long_flights__selected,
+    `Change diet` = PE_diet__selected,
+    `Insulate roof` = PE_insulate_roof__selected,
+    `Insulate facade` = PE_insulate_facade__selected,
+    `Replace windows` = PE_replace_windows__selected,
+    `Install solar panels` = PE_solar_panels__selected,
+    `Install ventilation` = PE_ventilation__selected,
+    `Install heat pump` = PE_heat_pump__selected,
+    `Reduce room temperature` = PE_reduce_temperature__selected,
+    `CO2 certificates` = PE_certificate__selected,
+  ) %>% 
+  select(
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`,
+    ID
+  ) 
+
+
+pe_choice <- pe_choice %>% mutate_all(., as.numeric)
+  
+
+# prepare availability table
+pe_availability <- df %>% 
+  mutate(
+    `Replace car AV` = PE_replace_car__visible,
+    `Sell car AV` = PE_sell_car__visible,
+    `Reduce car mileage AV` = PE_reduce_car__visible,
+    `Reduce short flights AV` = PE_reduce_short_flights__visible,
+    `Reduce medium flights AV` = PE_reduce_medium_flights__visible,
+    `Reduce long flights AV` = PE_reduce_long_flights__visible,
+    `Change diet AV` = TRUE,
+    `Insulate roof AV` = PE_insulate_roof__visible,
+    `Insulate facade AV` = PE_insulate_facade__visible,
+    `Replace windows AV` = PE_replace_windows__visible,
+    `Install solar panels AV` = PE_solar_panels__visible,
+    `Install ventilation AV` = PE_ventilation__visible,
+    `Install heat pump AV` = PE_heat_pump__visible,
+    `Reduce room temperature AV` = TRUE,
+    `CO2 certificates AV` = TRUE,
+  ) %>% 
+  select(
+    `Replace car AV`,
+    `Sell car AV`,
+    `Reduce car mileage AV`,
+    `Reduce short flights AV`,
+    `Reduce medium flights AV`,
+    `Reduce long flights AV`,
+    `Change diet AV`,
+    `Insulate roof AV`,
+    `Insulate facade AV`,
+    `Replace windows AV`,
+    `Install solar panels AV`,
+    `Install ventilation AV`,
+    `Install heat pump AV`,
+    `Reduce room temperature AV`,
+    `CO2 certificates AV`,
+    ID
+  ) 
+
+pe_availability <- pe_availability %>% mutate_all(., as.numeric)
+  
+
+
+
+
+
+# combine tables
+pe_choice_availability <- pe_availability %>% 
+  left_join(pe_choice, by = "ID")
+
+pe_choice_availability_1 <- pe_choice_availability %>% 
+  filter(`Replace car AV` == 1) %>% 
+  summarise(round(mean_ci(`Replace car`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Replace car")
+pe_choice_availability_2 <- pe_choice_availability %>% 
+  filter(`Insulate roof AV` == 1) %>% 
+  summarise(round(mean_ci(`Insulate roof`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Insulate roof")
+pe_choice_availability_3 <- pe_choice_availability %>% 
+  filter(`Insulate facade AV` == 1) %>% 
+  summarise(round(mean_ci(`Insulate facade`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Insulate facade")
+pe_choice_availability_4 <- pe_choice_availability %>% 
+  filter(`Replace windows AV` == 1) %>% 
+  summarise(round(mean_ci(`Replace windows`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Replace windows")
+pe_choice_availability_5 <- pe_choice_availability %>% 
+  filter(`Install solar panels AV` == 1) %>% 
+  summarise(round(mean_ci(`Install solar panels`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Install solar panels")
+pe_choice_availability_6 <- pe_choice_availability %>% 
+  filter(`Install ventilation AV` == 1) %>% 
+  summarise(round(mean_ci(`Install ventilation`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Install ventilation")
+pe_choice_availability_7 <- pe_choice_availability %>% 
+  filter(`Install heat pump AV` == 1) %>% 
+  summarise(round(mean_ci(`Install heat pump`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Install heat pump")
+
+pe_choice_availability_8 <- pe_choice_availability %>% 
+  filter(`Sell car AV` == 1) %>% 
+  summarise(round(mean_ci(`Sell car`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Sell car")
+pe_choice_availability_9 <- pe_choice_availability %>% 
+  filter(`Reduce car mileage AV` == 1) %>% 
+  summarise(round(mean_ci(`Reduce car mileage`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Reduce car mileage")
+pe_choice_availability_10 <- pe_choice_availability %>% 
+  filter(`Reduce short flights AV` == 1) %>% 
+  summarise(round(mean_ci(`Reduce short flights`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Reduce short flights")
+pe_choice_availability_11 <- pe_choice_availability %>% 
+  filter(`Reduce medium flights AV` == 1) %>% 
+  summarise(round(mean_ci(`Reduce medium flights`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Reduce medium flights")
+pe_choice_availability_12 <- pe_choice_availability %>% 
+  filter(`Reduce long flights AV` == 1) %>% 
+  summarise(round(mean_ci(`Reduce long flights`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Reduce long flights")
+pe_choice_availability_13 <- pe_choice_availability %>% 
+  filter(`Change diet AV` == 1) %>% 
+  summarise(round(mean_ci(`Change diet`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Change diet")
+pe_choice_availability_14 <- pe_choice_availability %>% 
+  filter(`Reduce room temperature AV` == 1) %>% 
+  summarise(round(mean_ci(`Reduce room temperature`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "Reduce room temperature")
+
+
+pe_choice_availability_15 <- pe_choice_availability %>% 
+  filter(`CO2 certificates AV` == 1) %>% 
+  summarise(round(mean_ci(`CO2 certificates`), digits = 3)*100) %>% 
+  mutate(mitigation_strategy = "CO2 certificates")
+
+# combine rows
+pe_choice_availability_combined <- pe_choice_availability_1 %>% 
+  bind_rows(pe_choice_availability_2,
+            pe_choice_availability_3,
+            pe_choice_availability_4,
+            pe_choice_availability_5,
+            pe_choice_availability_6,
+            pe_choice_availability_7,
+            pe_choice_availability_8,
+            pe_choice_availability_9,
+            pe_choice_availability_10,
+            pe_choice_availability_11,
+            pe_choice_availability_12,
+            pe_choice_availability_13,
+            pe_choice_availability_14,
+            pe_choice_availability_15)
+
+
+
+## add mean emission reduction per strategy (respondent level)
+df_emission_reductions_strategy_respondent <- df_emission_reductions_strategy %>% 
+select(ID, actual_repl_car_share_respondent,
+                   actual_sell_car_share_respondent,
+                   actual_reduce_car_share_respondent,
+                   actual_reduce_short_flights_share_respondent,
+                   actual_reduce_medium_flights_share_respondent,
+                   actual_reduce_long_flights_share_respondent,
+                   actual_reduce_diet_share_respondent,
+                   actual_reduce_roof_share_respondent,
+                   actual_reduce_facade_share_respondent,
+                   actual_reduce_windows_share_respondent,
+                   actual_reduce_pv_share_respondent,
+                   actual_reduce_ventilation_share_respondent,
+                   actual_reduce_heatpump_share_respondent,
+                   actual_reduce_temperature_share_respondent,
+                   actual_reduce_certificates_share_respondent)
+
+
+
+
+
+
+df_emission_reductions_strategy_respondent <- df_emission_reductions_strategy_respondent %>% 
+  pivot_longer(cols = actual_repl_car_share_respondent:`actual_reduce_certificates_share_respondent`, names_to = "mitigation_strategy", values_to = "emission_reductions") %>% 
+  mutate(mitigation_strategy = 
+           case_when(
+             mitigation_strategy == "actual_repl_car_share_respondent" ~ "Replace car",
+                     mitigation_strategy == "actual_sell_car_share_respondent" ~ "Sell car",
+                     mitigation_strategy == "actual_reduce_car_share_respondent" ~ "Reduce car mileage",
+                     mitigation_strategy == "actual_reduce_short_flights_share_respondent" ~ "Reduce short flights",
+                     mitigation_strategy == "actual_reduce_medium_flights_share_respondent" ~ "Reduce medium flights",
+                     mitigation_strategy == "actual_reduce_long_flights_share_respondent" ~ "Reduce long flights",
+                     mitigation_strategy == "actual_reduce_diet_share_respondent" ~ "Change diet",
+                     mitigation_strategy == "actual_reduce_roof_share_respondent" ~ "Insulate roof",
+                     mitigation_strategy == "actual_reduce_facade_share_respondent" ~ "Insulate facade",
+                     mitigation_strategy == "actual_reduce_windows_share_respondent" ~ "Replace windows",
+                     mitigation_strategy == "actual_reduce_pv_share_respondent" ~ "Install solar panels",
+                     mitigation_strategy == "actual_reduce_ventilation_share_respondent" ~ "Install ventilation",
+                     mitigation_strategy == "actual_reduce_heatpump_share_respondent" ~ "Install heat pump",
+                     mitigation_strategy == "actual_reduce_temperature_share_respondent" ~ "Reduce room temperature",
+                     mitigation_strategy == "actual_reduce_certificates_share_respondent" ~ "CO2 certificates")
+  ) %>% 
+  mutate(mitigation_strategy_type = case_when(
+        mitigation_strategy %in% c(
+          "Install heat pump",
+          "Install ventilation",
+          "Install solar panels",
+          "Replace windows",
+          "Insulate facade",
+          "Insulate roof",
+          "Replace car"
+        ) ~ "Technology",
+        mitigation_strategy %in% c(
+          "Reduce room temperature",
+          "Change diet",
+          "Reduce long flights",
+          "Reduce medium flights",
+          "Reduce short flights",
+          "Reduce car mileage",
+          "Sell car"
+        ) ~ "Behavior",
+        mitigation_strategy == "CO2 certificates" ~ "CO2 Certificates"
+        ))
+
+
+
+
+df_mean_emission_reductions_strategy_respondent <- df_emission_reductions_strategy_respondent %>% 
+  filter(emission_reductions != 0) %>% 
+  group_by(mitigation_strategy) %>% 
+  summarise(mean_emission_reduction = round(mean(emission_reductions, na.rm = T), digits = 3)*100) %>% 
+  left_join(distinct(df_emission_reductions_strategy_respondent, mitigation_strategy, mitigation_strategy_type), 
+            by = "mitigation_strategy")
+
+
+
+## add cost variable
+
+# prepare one time cost variable
+pe_investment <- df %>% 
+  mutate(
+    `Replace car` = PE_replace_car__investment,
+    `Sell car` = 0,
+    `Reduce car mileage` = 0,
+    `Reduce short flights` = 0,
+    `Reduce medium flights` = 0,
+    `Reduce long flights` = 0,
+    `Change diet` = 0,
+    `Insulate roof` = PE_insulate_roof__investment,
+    `Insulate facade` = PE_insulate_facade__investment,
+    `Replace windows` = PE_replace_windows__investment,
+    `Install solar panels` = PE_solar_panels__investment,
+    `Install ventilation` = PE_ventilation__investment,
+    `Install heat pump` = PE_heat_pump__investment,
+    `Reduce room temperature` = 0,
+    `CO2 certificates` = 0,
+  ) %>% 
+  select(
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`,
+    ID
+  ) 
+
+pe_investment <- pe_investment %>% 
+  pivot_longer(cols = `Replace car`:`CO2 certificates`, names_to = "mitigation_strategy", values_to = "one_time_costs")
+
+
+
+
+# prepare annual cost variable
+pe_annual <- df %>% 
+  mutate(
+    `Replace car` = PE_replace_car__annual,
+    `Sell car` = PE_sell_car__annual,
+    `Reduce car mileage` = PE_reduce_car__annual,
+    `Reduce short flights` = PE_reduce_short_flights__annual,
+    `Reduce medium flights` = PE_reduce_medium_flights__annual,
+    `Reduce long flights` = PE_reduce_long_flights__annual,
+    `Change diet` = 0,
+    `Insulate roof` = (PE_insulate_roof__annual),
+    `Insulate facade` = PE_insulate_facade__annual,
+    `Replace windows` = PE_replace_windows__annual,
+    `Install solar panels` = PE_solar_panels__annual,
+    `Install ventilation` = PE_ventilation__annual,
+    `Install heat pump` = PE_heat_pump__annual,
+    `Reduce room temperature` = PE_reduce_temperature__annual,
+    `CO2 certificates` = PE_certificate__annual,
+  ) %>% 
+  select(
+    `Replace car`,
+    `Sell car`,
+    `Reduce car mileage`,
+    `Reduce short flights`,
+    `Reduce medium flights`,
+    `Reduce long flights`,
+    `Change diet`,
+    `Insulate roof`,
+    `Insulate facade`,
+    `Replace windows`,
+    `Install solar panels`,
+    `Install ventilation`,
+    `Install heat pump`,
+    `Reduce room temperature`,
+    `CO2 certificates`,
+    ID
+  ) 
+
+pe_annual <- pe_annual %>% 
+  pivot_longer(cols = `Replace car`:`CO2 certificates`, names_to = "mitigation_strategy", values_to = "Annual") 
+
+
+
+
+# combine one time and annual cost variables
+pe_annual_investment <- pe_annual %>% 
+  left_join(pe_investment, by = c("ID", "mitigation_strategy")) 
+
+
+
+# add info on whether option was chosen
+
+# combine reductions and choice dataframe
+pe_choice_reshaped <- pe_choice %>% 
+  pivot_longer(cols = `Replace car`:`CO2 certificates`, names_to = "mitigation_strategy", values_to = "choice")
+
+pe_annual_investment_choice <- pe_annual_investment %>% 
+  left_join(pe_choice_reshaped, by = c("ID", "mitigation_strategy")) 
+
+# set NA if not chosen
+pe_annual_investment_choice <- pe_annual_investment_choice %>%
+  mutate(one_time_cost_if_chosen = if_else(choice == 1, one_time_costs, NA),
+         annual_cost_if_chosen = if_else(choice == 1, Annual, NA))
+
+
+# summarise costs
+pe_annual_investment_choice <- pe_annual_investment_choice %>%
+  group_by(mitigation_strategy) %>% 
+  summarise(mean_one_time_cost_if_chosen = round(mean(one_time_cost_if_chosen, na.rm = T), digits = 2),
+            mean_annual_cost_if_chosen = round(mean(annual_cost_if_chosen, na.rm = T), digits = 2))
+
+
+
+
+# combine dataframes
+map_plot_respondent_table <- df_mean_emission_reductions_strategy_respondent %>% 
+  left_join(pe_choice_availability_combined, by = "mitigation_strategy") %>% 
+  left_join(pe_annual_investment_choice, by = "mitigation_strategy")
+
+map_plot_respondent_table <- map_plot_respondent_table %>% mutate(mitigation_strategy = factor(mitigation_strategy, levels = c(
+                                                  "Install heat pump",
+           "Install ventilation",
+           "Install solar panels",
+           "Replace windows",
+           "Insulate facade",
+           "Insulate roof",
+           "Replace car",
+           "Reduce room temperature",
+           "Change diet",
+           "Reduce long flights",
+           "Reduce medium flights",
+           "Reduce short flights",
+           "Reduce car mileage",
+          "Sell car",
+          "CO2 certificates")
+          )
+  )
+
+# add factor levels for plotting
+map_plot_respondent_table$mitigation_strategy_type <- factor(map_plot_respondent_table$mitigation_strategy_type, levels = c("Technology", "Behavior", "CO2 Certificates"))
+
+# order rows for printing
+map_plot_respondent_table <- map_plot_respondent_table %>% arrange(mitigation_strategy_type) # Ascending
+
+# order columns for printing
+map_plot_respondent_table <- map_plot_respondent_table %>%
+  select(mitigation_strategy_type, mitigation_strategy, y, ymin, ymax, mean_emission_reduction, mean_one_time_cost_if_chosen, mean_annual_cost_if_chosen)  
+
+#encode as numeric
+
+
+# save descriptive table
+# Add labels as the first row
+
+variable_labels <- c(
+  "Strategy Type", 
+  "Mitigation Strategy", 
+  "Choice Probability (mean in %)", 
+  "95% CI Lower", 
+  "95% CI Upper", 
+  "Emission Reduction (mean in %)", 
+  "One-Time Costs (mean in CHF)", 
+  "Annual Costs/Savings (mean in CHF)"
+)
+
+
+colnames(map_plot_respondent_table) <- variable_labels
+
+# Create table with kable and kableExtra for LaTeX format
+map_plot_respondent_table %>% kable(format = "html", booktabs = TRUE, escape = FALSE) %>% 
+  kable_styling(full_width = FALSE, position = "center")
+
+
+```
