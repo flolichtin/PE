@@ -14,6 +14,8 @@ or from the `.tar.gz` file. For non-R users, see the main data of interest in `i
 
 ## Dev dependencies
 
+>This is not relevant for the data user...
+
 ### Packages
 
 - Install `labelr` package: `devtools::install_github("ivt-baug-ethz/labelr")` (Version: 0.0.2.9000)
