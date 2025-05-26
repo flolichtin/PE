@@ -2,3 +2,4 @@
 ^\.Rproj\.user$
 tmp
 ^data-raw$
+^LICENSE\.md$
